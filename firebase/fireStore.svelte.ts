@@ -1,15 +1,21 @@
-import {
-  collection,
-  getDoc,
-  getDocs,
-  documentId,
-  DocumentReference,
-} from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { writable } from 'svelte/store';
 
 const receiptCollection = collection(db, 'receipts');
 
-export let receiptFields = {
+// export let receiptFields = writable({
+//   // placeholder values
+//   merchantName: 'test-merchant',
+//   address: 'test-address',
+//   category: 'test-category',
+//   date: 'test-date',
+//   subtotal: 'test-subtotal',
+//   total: 'test-total',
+//   totalTax: 'test-totalTax',
+// });
+export let receiptFields = $state({
+  // placeholder values
   merchantName: 'test-merchant',
   address: 'test-address',
   category: 'test-category',
@@ -17,7 +23,7 @@ export let receiptFields = {
   subtotal: 'test-subtotal',
   total: 'test-total',
   totalTax: 'test-totalTax',
-};
+});
 
 export async function getReceipts() {
   try {
@@ -35,17 +41,15 @@ export async function getReceipts() {
       // address.push(doc.data().address.content); todo remove
       // receiptFields.push({ address: doc.data().address.content });
 
-      // fill the object while looping
-      receiptFields = {
-        merchantName: doc.data().merchantName.content,
-        address: doc.data().address.content,
-        category: doc.data().category.content,
-        date: doc.data().date.content,
-        subtotal: doc.data().subtotal.content,
-        total: doc.data().total.content,
-        totalTax: doc.data().totalTax.content,
-      };
-      // console.log("Exists: ", doc.exists());
+      // Update the Reactive receiptFields object
+
+      receiptFields.merchantName = doc.data().merchantName.content;
+      receiptFields.address = doc.data().address.content;
+      receiptFields.category = doc.data().category.content;
+      receiptFields.date = doc.data().date.content;
+      receiptFields.subtotal = doc.data().subtotal.content;
+      receiptFields.total = doc.data().total.content;
+      receiptFields.totalTax = doc.data().totalTax.content;
     });
   } catch (err) {
     console.log(err, 'receipt fetch failed');

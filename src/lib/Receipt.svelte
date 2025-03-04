@@ -5,20 +5,35 @@
   import { Input } from "./components/ui/input";
   import { Label } from "./components/ui/label";
   import { Separator } from "./components/ui/separator";
-  
-  // Import a sample receipt data object instead of the JSON file that can't be found
-  // Replace this with your actual data structure when available
-  const receiptDataJson = {
-    merchantName: { value: "Contoso Ltd.", confidence: 0.95 },
-    date: { value: "2024-04-15", confidence: 0.98 },
-    total: { value: "$125.40", confidence: 0.99 },
-    category: { value: "Office Supplies", confidence: 0.90 },
-    subtotal: { value: "$115.00", confidence: 0.97 },
-    totalTax: { value: "$10.40", confidence: 0.96 }
-  };
+  import { getReceipts, receiptFields} from "../../firebase/fireStore.svelte"
+  import { onMount } from "svelte";
+
+  let isLoading = $state(false);
+
+  onMount(async ()=>{
+    // on mount, wait to get receipts
+    try{
+      isLoading = true;
+      await getReceipts()
+
+    }catch(err){
+      console.error(err)
+
+    }finally{
+       isLoading = false;
+    }
+  })
+
+  // receiptFields;
+  // call getReceipts to update *receiptFields* data 
+  // const getReceiptPage = async ()=>{
+  //   await getReceipts()
+  // }
+ 
+  // getReceiptPage()
 
   // Define interfaces for receipt data
-  export let receiptData = receiptDataJson;
+  // export let receiptData = receiptDataJson;
 
   interface ReceiptField {
     value: string;
@@ -81,46 +96,64 @@
     
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <!-- Receipt 1 - using data from receiptData -->
+      {#if isLoading}
+      <h1>Loading...</h1>
+      {:else}
       <Card>
         <CardHeader>
-          <CardTitle>{receiptData?.merchantName?.value || 'Unknown'}</CardTitle>
-          <CardDescription>{receiptData?.date?.value || 'No date'}</CardDescription>
+          <CardTitle>{receiptFields?.merchantName || 'Unknown'}</CardTitle>
+          <CardDescription>{receiptFields?.date || 'No date'}</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="aspect-square w-full flex items-center justify-center rounded-md overflow-hidden bg-muted mb-4">
             <img 
               class="h-full w-full object-cover" 
               src="/src/assets/contoso-receipt.png" 
-              alt="Receipt from {receiptData?.merchantName?.value || 'Unknown'}"
+              alt="Receipt from {receiptFields?.merchantName || 'Unknown'}"
             />
           </div>
           <div class="space-y-2">
             <div class="flex justify-between">
               <span class="text-muted-foreground">Category:</span>
-              <span>{receiptData?.category?.value || 'N/A'}</span> 
+              <span>{receiptFields?.category || 'N/A'}</span> 
             </div>
             <div class="flex justify-between">
+              <span class="text-muted-foreground">Address:</span>
+              <span>{receiptFields?.address || 'N/A'}</span> 
+            </div>
+            
+            <div class="flex justify-between">
               <span class="text-muted-foreground">Subtotal:</span>
-              <span>{receiptData?.subtotal?.value || 'N/A'}</span>
+              <span>{receiptFields?.subtotal || 'N/A'}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-muted-foreground">Tax:</span>
-              <span>{receiptData?.totalTax?.value || 'N/A'}</span>
+              <span>{receiptFields?.totalTax || 'N/A'}</span>
             </div>
+            <div class="flex justify-between">
+              <!-- add arrow down icon and show items -->
+              <span class="text-muted-foreground">More Details</span>
+              <span class="text-muted-foreground">{"->"}</span>
+
+            </div>
+
             <Separator />
+
             <div class="flex justify-between font-medium">
               <span>Total:</span>
-              <span>{receiptData?.total?.value || 'N/A'}</span>
+              <span>{receiptFields?.total || 'N/A'}</span>
             </div>
+           
           </div>
         </CardContent>
         <CardFooter>
           <Button  size="sm" class="w-full">View Details</Button>
         </CardFooter>
       </Card>
+      {/if}
 
       <!-- Receipt 2 - using hardcoded sample data -->
-      <Card>
+      <!-- <Card>
         <CardHeader>
           <CardTitle>{sampleReceipt.merchantName.value}</CardTitle>
           <CardDescription>{sampleReceipt.date.value}</CardDescription>
@@ -144,7 +177,7 @@
         <CardFooter>
           <Button  size="lg" class="w-full">View Details</Button>
         </CardFooter>
-      </Card>
+      </Card> -->
     </div>
   </div>
 </div>

@@ -8,7 +8,7 @@
   // User display name
   let displayName = '';
   
-  // Update display name when auth state changes
+  // Update display name when AUTH state changes
   onMount(() => {
     const unsubscribe = onAuthStateChanged((user) => {
       displayName = user?.displayName || user?.email?.split('@')[0] || 'User';
