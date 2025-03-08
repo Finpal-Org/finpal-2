@@ -1,55 +1,74 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { writable } from 'svelte/store';
+import type { ReceiptData } from '../src/types';
+// import type ReceiptField from '../src/lib/Receipt.svelte';
 
-const receiptCollection = collection(db, 'receipts');
+export let receipts: ReceiptData[] = $state([]); // init receipts as empty array
 
-// export let receiptFields = writable({
-//   // placeholder values
-//   merchantName: 'test-merchant',
-//   address: 'test-address',
-//   category: 'test-category',
-//   date: 'test-date',
-//   subtotal: 'test-subtotal',
-//   total: 'test-total',
-//   totalTax: 'test-totalTax',
-// });
-export let receiptFields = $state({
-  // placeholder values
-  merchantName: 'test-merchant',
-  address: 'test-address',
-  category: 'test-category',
-  date: 'test-date',
-  subtotal: 'test-subtotal',
-  total: 'test-total',
-  totalTax: 'test-totalTax',
-});
+const receiptCollection = collection(db, 'receipts'); //receipt collection ref
 
 export async function getReceipts() {
+  //fetch receipts from firestore
   try {
-    //1. fetch receipts docs
-    const getReceiptDocs = await getDocs(receiptCollection);
+    const receiptDocs = await getDocs(receiptCollection); //1. fetch receipts docs
 
-    //2.loop over docs (fields) and log them
-    getReceiptDocs.forEach((doc) => {
-      // console.log("ID: ", doc.id);
-      console.log('Address: ', doc.data().address.content);
-      console.log('Category: ', doc.data().category.content);
-      console.log('Date: ', doc.data().date.content);
-      console.log('--------------------------------');
+    //2.Loop over Receipts and store them in receipts array
 
-      // address.push(doc.data().address.content); todo remove
-      // receiptFields.push({ address: doc.data().address.content });
+    receipts.length = 0;
 
-      // Update the Reactive receiptFields object
+    receiptDocs.docs.forEach((doc) => {
+      // Extract all the data first
+      const rawData = doc.data();
 
-      receiptFields.merchantName = doc.data().merchantName.content;
-      receiptFields.address = doc.data().address.content;
-      receiptFields.category = doc.data().category.content;
-      receiptFields.date = doc.data().date.content;
-      receiptFields.subtotal = doc.data().subtotal.content;
-      receiptFields.total = doc.data().total.content;
-      receiptFields.totalTax = doc.data().totalTax.content;
+      // STEP 1: Create separate variables with explicit checks
+      const merchantContent =
+        rawData && rawData.merchantName && rawData.merchantName.content
+          ? rawData.merchantName.content
+          : 'Unknown';
+
+      const addressContent =
+        rawData && rawData.address && rawData.address.content
+          ? rawData.address.content
+          : 'Unknown';
+
+      const categoryContent =
+        rawData && rawData.category && rawData.category.content
+          ? rawData.category.content
+          : 'Unknown';
+
+      const dateContent =
+        rawData && rawData.date && rawData.date.content
+          ? rawData.date.content
+          : 'Unknown';
+
+      const subtotalContent =
+        rawData && rawData.subtotal && rawData.subtotal.content
+          ? rawData.subtotal.content
+          : 'Unknown';
+
+      const totalContent =
+        rawData && rawData.total && rawData.total.content
+          ? rawData.total.content
+          : 'Unknown';
+
+      const totalTaxContent =
+        rawData && rawData.totalTax && rawData.totalTax.content
+          ? rawData.totalTax.content
+          : 'Unknown';
+
+      // STEP 2: Build object from safe variables
+      const safeReceipt = {
+        id: doc.id,
+        merchantName: merchantContent,
+        address: addressContent,
+        category: categoryContent,
+        date: dateContent,
+        subtotal: subtotalContent,
+        total: totalContent,
+        totalTax: totalTaxContent,
+      };
+
+      receipts.push(safeReceipt);
     });
   } catch (err) {
     console.log(err, 'receipt fetch failed');
