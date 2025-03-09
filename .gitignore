@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
+*.pdf
+
 # Firebase key
 firebase-key.json

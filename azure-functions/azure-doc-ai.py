@@ -132,7 +132,6 @@ def extracted_result(result):
             "date": "TransactionDate",
             "time": "TransactionTime",
             "total":"Total", #TODO: Subtotal {CurrencyCode}
-            # TODO: Subtotal {CurrencyCode}
             "subtotal": "Subtotal", 
             "country": "CountryRegion",
             "taxDetails": "TaxDetails", # 15% 

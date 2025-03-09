@@ -3,7 +3,7 @@ import { db } from './firebaseConfig';
 import type { ReceiptData } from '../src/types';
 // import type ReceiptField from '../src/lib/Receipt.svelte';
 
-export let receipts: ReceiptData[] = $state([]); // init receipts as empty array
+export let receipts: ReceiptData[] = $state([]); // init reactive receipts as empty array
 
 const receiptCollection = collection(db, 'receipts'); //receipt collection ref
 
@@ -24,7 +24,7 @@ export async function getReceipts() {
       const merchantContent =
         rawData && rawData.merchantName && rawData.merchantName.content
           ? rawData.merchantName.content
-          : 'Unknown';
+          : 'Merchant';
 
       const addressContent =
         rawData && rawData.address && rawData.address.content
@@ -34,7 +34,7 @@ export async function getReceipts() {
       const categoryContent =
         rawData && rawData.category && rawData.category.content
           ? rawData.category.content
-          : 'Unknown';
+          : 'Other';
 
       const dateContent =
         rawData && rawData.date && rawData.date.content
@@ -56,9 +56,15 @@ export async function getReceipts() {
           ? rawData.totalTax.content
           : 'Unknown';
 
+      // check if there is data-> there  is phone obj ->content of phone ?
+      const phoneContent =
+        rawData && rawData.phone && rawData.phone.content
+          ? rawData.phone.content
+          : 'Unknown';
+
       // STEP 2: Build object from safe variables
       const safeReceipt = {
-        id: doc.id,
+        id: doc.id, //TODO: do we need doc id?
         merchantName: merchantContent,
         address: addressContent,
         category: categoryContent,
@@ -66,6 +72,7 @@ export async function getReceipts() {
         subtotal: subtotalContent,
         total: totalContent,
         totalTax: totalTaxContent,
+        phone: phoneContent,
       };
 
       receipts.push(safeReceipt);
