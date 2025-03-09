@@ -6,7 +6,8 @@ type indexable = { [key: string]: any }; //onject of key string, value any
 
 //Function name helloworld , Event type Https Request
 export const helloworld = onRequest((request, response) => {
-  debugger; //to use debugger chrome inspect tools
+  debugger; //debugger for chrome inspect tools
+
   //Call back (Custom code after event trigger)
   const name = request.params[0].replace('/', ''); //params (name) first item
 

@@ -69,14 +69,15 @@
       {:else} 
         <!-- Loop over receipts -->
          {#each receipts as receipt }
-        <div  class="max-w-[350px]">
-        <Card>  
+        <div class="flex justify-center" >
+        <Card class="max-w-[300px]">  
           <CardHeader>
-            <CardTitle>{receipt.merchantName ? receipt.merchantName : 'Unknown'}</CardTitle>
-            <CardDescription>{receipt?.category || 'No date'}</CardDescription>
+            <CardTitle>{receipt.merchantName ? receipt.merchantName : 'Merchant'}</CardTitle>
+            <CardDescription>{receipt?.category || 'Other'}</CardDescription>
           </CardHeader>
           <CardContent>
             <div class="aspect-square w-full flex items-center justify-center rounded-md overflow-hidden bg-muted mb-4">
+              <!-- TODO: onclick img expand & show retake option -->
               <img
                 class="h-full w-full object-cover"
                 src="/src/assets/contoso-receipt.png"
@@ -84,29 +85,37 @@
               />
             </div>
             <div class="space-y-2">
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Category:</span>
+              <div class="flex gap-2 justify-between">
+                <span class="text-muted-foreground">Category</span>
                 <span>{receipt?.category || 'N/A'}</span>
               </div>
               <!-- todo move address inside details  -->
-              <div class="flex justify-between ">
-                <span class="text-muted-foreground">Address:</span>
-                <span class="font-size-sm">{receipt?.address|| 'N/A'}</span>
+              <div class="flex gap-2 justify-between">
+                <span class="text-muted-foreground">Date</span>
+                <span class="font-size-sm">{receipt?.date|| 'N/A'}</span>
               </div>
         
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Subtotal:</span>
-                <span>{receipt?.subtotal || 'N/A'}</span>
+              <div class="flex gap-2 justify-between">
+                <span class="text-muted-foreground">Contact</span> 
+                <!-- TODO: needs proper phone formating for quick access (copy paste) -->
+                <span><a href="tel:{receipt?.phone || 'N/A'}"> {receipt?.phone || 'N/A'}</a></span>
               </div>
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Tax:</span>
-                <span>{receipt?.totalTax || 'N/A'}</span>
+              <div class="flex gap-2 justify-between">
+                <!-- PAYMENT METHOD TODO: -->
+                <span class="text-muted-foreground">Vat Total</span>
+                <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
+                <span class="flex gap-1">{receipt?.totalTax || 'N/A'} <img class="w-[15px]" src="./saudi-riyal.svg" alt=""> </span>
               </div>
-              <div class="flex justify-between">
-                <!-- add arrow down icon and show items -->
-                <span class="text-muted-foreground">More Details</span>
-                <span class="text-muted-foreground">{"->"}</span>
+              <div class="flex gap-2 justify-between">
+                <!-- PAYMENT METHOD TODO: -->
+                <span class="text-muted-foreground">Payment Method</span>
+                <span>{'Card'}</span>
               </div>
+              <div class="flex justify-center">
+                <span class="text-muted-foreground flex justify-center items-center "> 
+                    <!-- <svg xmlns="http://www.w3.org/2000/svg" height="14" width="12.25" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>   -->
+                </span>
+              </div> 
               <Separator />
               <div class="flex justify-between font-medium">
                 <span>Total:</span>
@@ -116,6 +125,7 @@
             </div>
           </CardContent>
           <CardFooter>
+         <!-- TODO: Onclick Expand or popup Detailed view -->
             <Button  size="sm" class="w-full">View Details</Button>
           </CardFooter>
         </Card>
