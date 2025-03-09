@@ -1,4 +1,7 @@
 # import libraries
+from dataclasses import field
+from datetime import date
+import datetime
 from multiprocessing.managers import ValueProxy
 import os
 #REST api imports
@@ -22,11 +25,11 @@ db = firestore.client() # connect to db
 endpoint = os.getenv("AZURE_ENDPOINT")
 key = os.getenv("AZURE_KEY")
 
-analyze_url = f"{endpoint}formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31"
+analyze_url = f"{endpoint}documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30"
 
 def analyze_receipt():
     # Path to the receipt file - make sure this is the correct path and a < 4mb size  
-    receipt_path = "./assets/IMG_6818.jpg"
+    receipt_path = "../assets/receipt1.jpg"
         
     # Open the receipt img in binary mode (required by azure)
     with open(receipt_path, "rb") as f: #rb: read binary
@@ -37,7 +40,7 @@ def analyze_receipt():
                 
        
         #exact url from azure docs
-        analyze_url = f"{endpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31"
+        analyze_url = f"{endpoint}documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30"
         #these are info azure needs to be passed in post request
         headers = {
             "Ocp-Apim-Subscription-Key": key,
@@ -106,6 +109,7 @@ def extracted_result(result):
             documents = analyze_result.get("documents", [])
             if documents:
                 print("Document type:", documents[0].get("docType", "No docType found"))
+                print("Document type:", documents[0].get("ReceiptType", "No ReceiptType found"))
                 print("Document fields available:", documents[0].get("fields", {}).keys())
 
     try: 
@@ -140,7 +144,7 @@ def extracted_result(result):
             "items": "Items",
             "tags": "Tags",
             # "category": "ReceiptType",
-            "receiptType": "ReceiptType"  #no nesting
+            # "receiptType": "ReceiptType"  #no nesting
           
         }
 
@@ -153,6 +157,13 @@ def extracted_result(result):
                     "content":field_obj.get("content",""),
                     "confidence": field_obj.get("confidence",0)
                 }
+
+        receiptType = "ReceiptType" # category
+        if("ReceiptType" in fields):
+            extracted["category"] = {
+                "content": fields["ReceiptType"].get("valueString","Other"), # get value of category, store it in valueStr key -> other if empty..
+                "confidence": fields["ReceiptType"].get("confidence",0)
+            }
 
         # 3. COMPLEX ITEMS HANDLING (more nested)
         if "Items" in fields:
@@ -167,9 +178,9 @@ def extracted_result(result):
                     if "valueObject" in item:
                         value_obj = item["valueObject"]
                         
-                        # Map actual fields to our expected fields
-                        if "ReceiptType" in value_obj:
-                           extracted["ReceiptType"]= {"receiptType" : value_obj.get("ReceiptType", "other")} #TODO: category right?
+                        # # Map actual fields to our expected fields
+                        # if "ReceiptType" in value_obj:
+                        #    extracted["ReceiptType"]= {"category" : value_obj.get("ReceiptType", "other")} #TODO: category right?
 
                         if "Description" in value_obj:
                             item_properties["Description"] = {
@@ -209,15 +220,15 @@ def extracted_result(result):
             # 3.then remove "retail" from "retailMeal"
             doc_type= document.get("docType","") #receipt.retailMeal
 
-            if "." in doc_type:
-                split_category = doc_type.split(".") #["receipt", "retailMeal"]
-                if len(split_category) > 1:     
-                    unreadable_category= split_category[1] #"retailMeal"
+            # if "." in doc_type:
+            #     split_category = doc_type.split(".") #["receipt", "retailMeal"]
+            #     if len(split_category) > 1:     
+            #         unreadable_category= split_category[1] #"retailMeal"
 
-                    readble_category= unreadable_category.removeprefix("retail").title() #Meal 
+            #         readble_category= unreadable_category.removeprefix("retail").title() #Meal 
 
                     #set content to readble category "Meal"
-                    extracted["category"]= {"content": readble_category, "confidence":document.get("confidence",0)}
+            extracted["category"]= {"content": doc_type, "confidence":document.get("confidence",0)}
 
 
     #exception
@@ -226,8 +237,11 @@ def extracted_result(result):
 
     # Firestore the receipt
     if(extracted):
-        receipt_id = db.collection("receipts").document() #add receipt with random id
-        receipt_id.set(extracted)
+        current_time = datetime.datetime.now()
+        extracted["createdTime"]= current_time # add new key (creation time) inside extract -> store created time in db
+
+        receipt_id = db.collection("receipts").document() # add receipt with random id
+        receipt_id.set(extracted) # set new doc with fresh extracted receipt data
         
 
     return extracted
