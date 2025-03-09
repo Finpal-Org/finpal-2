@@ -1,11 +1,11 @@
 <script lang="ts">
-  // Import shadcn components
-  import { Button } from "./components/ui/button";
+ // Import shadcn components
+ import { Button } from "./components/ui/button";
   import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
   import { Input } from "./components/ui/input";
   import { Label } from "./components/ui/label";
   import { Separator } from "./components/ui/separator";
-  import { getReceipts, receiptFields} from "../../firebase/fireStore.svelte"
+  import { getReceipts, receipts} from "../../firebase/fireStore.svelte"
   import { onMount } from "svelte";
 
   let isLoading = $state(false);
@@ -16,6 +16,7 @@
       isLoading = true;
       await getReceipts()
 
+
     }catch(err){
       console.error(err)
 
@@ -24,35 +25,9 @@
     }
   })
 
-  // receiptFields;
-  // call getReceipts to update *receiptFields* data 
-  // const getReceiptPage = async ()=>{
-  //   await getReceipts()
-  // }
- 
-  // getReceiptPage()
-
   // Define interfaces for receipt data
   // export let receiptData = receiptDataJson;
 
-  interface ReceiptField {
-    value: string;
-    confidence: number;
-  }
-  
-  interface ReceiptData {
-    merchantName?: ReceiptField;
-    phone?: ReceiptField;
-    date?: ReceiptField;
-    time?: ReceiptField;
-    total?: ReceiptField;
-    image?: ReceiptField;
-    category?: ReceiptField;
-    taxDetails?: ReceiptField;
-    totalTax?: ReceiptField;
-    subtotal?: ReceiptField;
-    items?: ReceiptField;
-  }
 
   // Create a sample receipt for the second card
   const sampleReceipt = {
@@ -62,18 +37,8 @@
     category: { value: "Groceries", confidence: 0.9 }
   };
 
-  // Function to handle file upload
-  function handleFileUpload(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
-    if (file) {
-      console.log("File uploaded:", file.name);
-      // Here you would process the file, perhaps send it to an API
-      // For now we just log it
-    }
-  }
 </script>
-
+<main>
 <div class="container mx-auto p-6 space-y-8">
   <div class="flex flex-col space-y-2">
     <h1 class="text-3xl font-bold">Receipts</h1>
@@ -87,7 +52,6 @@
         type="file"
         id="upload-file"
         accept=".pdf,.jpg,.jpeg,.png"
-        on:change={handleFileUpload}
       />
       <Button variant="outline">Upload Receipt</Button>
     </div>
@@ -95,61 +59,68 @@
     <Separator />
     
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <!-- Receipt 1 - using data from receiptData -->
+       <!-- if Fetching receipts -->
       {#if isLoading}
-      <h1>Loading...</h1>
-      {:else}
-      <Card>
-        <CardHeader>
-          <CardTitle>{receiptFields?.merchantName || 'Unknown'}</CardTitle>
-          <CardDescription>{receiptFields?.date || 'No date'}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div class="aspect-square w-full flex items-center justify-center rounded-md overflow-hidden bg-muted mb-4">
-            <img 
-              class="h-full w-full object-cover" 
-              src="/src/assets/contoso-receipt.png" 
-              alt="Receipt from {receiptFields?.merchantName || 'Unknown'}"
-            />
-          </div>
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Category:</span>
-              <span>{receiptFields?.category || 'N/A'}</span> 
+        <h1>Loading...</h1>
+      <!-- if there are no receipts -->
+      {:else if receipts.length ===0}
+        <h1>No receipts Found.. Please Upload a Receipt</h1>
+      <!-- if there are receipts fetch em all-->
+      {:else} 
+        <!-- Loop over receipts -->
+         {#each receipts as receipt }
+        <div  class="max-w-[350px]">
+        <Card>  
+          <CardHeader>
+            <CardTitle>{receipt.merchantName ? receipt.merchantName : 'Unknown'}</CardTitle>
+            <CardDescription>{receipt?.category || 'No date'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div class="aspect-square w-full flex items-center justify-center rounded-md overflow-hidden bg-muted mb-4">
+              <img
+                class="h-full w-full object-cover"
+                src="/src/assets/contoso-receipt.png"
+                alt=""
+              />
             </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Address:</span>
-              <span>{receiptFields?.address || 'N/A'}</span> 
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Category:</span>
+                <span>{receipt?.category || 'N/A'}</span>
+              </div>
+              <!-- todo move address inside details  -->
+              <div class="flex justify-between ">
+                <span class="text-muted-foreground">Address:</span>
+                <span class="font-size-sm">{receipt?.address|| 'N/A'}</span>
+              </div>
+        
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Subtotal:</span>
+                <span>{receipt?.subtotal || 'N/A'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Tax:</span>
+                <span>{receipt?.totalTax || 'N/A'}</span>
+              </div>
+              <div class="flex justify-between">
+                <!-- add arrow down icon and show items -->
+                <span class="text-muted-foreground">More Details</span>
+                <span class="text-muted-foreground">{"->"}</span>
+              </div>
+              <Separator />
+              <div class="flex justify-between font-medium">
+                <span>Total:</span>
+                <span>{receipt?.total || 'N/A'}</span>
+              </div>
+        
             </div>
-            
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Subtotal:</span>
-              <span>{receiptFields?.subtotal || 'N/A'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Tax:</span>
-              <span>{receiptFields?.totalTax || 'N/A'}</span>
-            </div>
-            <div class="flex justify-between">
-              <!-- add arrow down icon and show items -->
-              <span class="text-muted-foreground">More Details</span>
-              <span class="text-muted-foreground">{"->"}</span>
-
-            </div>
-
-            <Separator />
-
-            <div class="flex justify-between font-medium">
-              <span>Total:</span>
-              <span>{receiptFields?.total || 'N/A'}</span>
-            </div>
-           
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button  size="sm" class="w-full">View Details</Button>
-        </CardFooter>
-      </Card>
+          </CardContent>
+          <CardFooter>
+            <Button  size="sm" class="w-full">View Details</Button>
+          </CardFooter>
+        </Card>
+        </div>
+        {/each}
       {/if}
 
       <!-- Receipt 2 - using hardcoded sample data -->
@@ -181,7 +152,7 @@
     </div>
   </div>
 </div>
-
+</main>
 <style>
   /* You can add component-specific styles here if needed */
   /* #receipt-container {

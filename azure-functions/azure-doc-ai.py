@@ -1,4 +1,5 @@
 # import libraries
+from multiprocessing.managers import ValueProxy
 import os
 #REST api imports
 import requests
@@ -25,7 +26,7 @@ analyze_url = f"{endpoint}formrecognizer/documentModels/prebuilt-receipt:analyze
 
 def analyze_receipt():
     # Path to the receipt file - make sure this is the correct path and a < 4mb size  
-    receipt_path = "../assets/contoso-receipt.png"
+    receipt_path = "./assets/IMG_6818.jpg"
         
     # Open the receipt img in binary mode (required by azure)
     with open(receipt_path, "rb") as f: #rb: read binary
@@ -126,18 +127,20 @@ def extracted_result(result):
             "phone": "MerchantPhoneNumber",
             "date": "TransactionDate",
             "time": "TransactionTime",
-            "total":"Total",
-            "subtotal": "Subtotal",
+            "total":"Total", #TODO: Subtotal {CurrencyCode}
+            # TODO: Subtotal {CurrencyCode}
+            "subtotal": "Subtotal", 
             "country": "CountryRegion",
-            "taxDetails": "TaxDetails",
+            "taxDetails": "TaxDetails", # 15% 
             "totalTax": "TotalTax",
             "tip": "Tip",
             "payment":"PaymentType",
-            "currency": "Currency",
+            "currency": "currencyCode", #TODO: currency?
             "transactionId" : "TransactionId",
             "items": "Items",
             "tags": "Tags",
-            "category": "ReceiptType"
+            # "category": "ReceiptType",
+            "receiptType": "ReceiptType"  #no nesting
           
         }
 
@@ -165,6 +168,9 @@ def extracted_result(result):
                         value_obj = item["valueObject"]
                         
                         # Map actual fields to our expected fields
+                        if "ReceiptType" in value_obj:
+                           extracted["ReceiptType"]= {"receiptType" : value_obj.get("ReceiptType", "other")} #TODO: category right?
+
                         if "Description" in value_obj:
                             item_properties["Description"] = {
                                 "content": value_obj["Description"].get("content", ""),
@@ -180,7 +186,8 @@ def extracted_result(result):
                         if "TotalPrice" in value_obj:
                             item_properties["Amount"] = {  # Mapping TotalPrice to Amount
                                 "content": value_obj["TotalPrice"].get("content", ""),
-                                "confidence": value_obj["TotalPrice"].get("confidence", 0)
+                                "confidence": value_obj["TotalPrice"].get("confidence", 0),
+                                "currency": value_obj["TotalPrice"].get("valueCurrency",{}).get("currencyCode","SAR")
                             }
                     
                     items_array.append(item_properties)
@@ -194,8 +201,8 @@ def extracted_result(result):
         if "Tags" in analyze_result:
             extracted["tags"]= analyze_result.get("Tags", {})
 
-        #Doctype / Category
-        if "docType" in document:
+        #Doctype / Category TODO: CATEGORY might not be in doctype, more like in receiptType{supplies *directly no nesting*}
+        # if "docType" in document:
             # #Document type: (receipt.retailMeal)
             # 1.Need it to be "Meal"
             # 2.make into arr, seperate via .

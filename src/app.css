@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+  /* font-family: 'Rubik', sans-serif; */
+  /* font-family: 'Inter', sans-serif; */
+  font-family: 'Ubuntu', sans-serif;
+  font-weight: 500;
+  font-size: large;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

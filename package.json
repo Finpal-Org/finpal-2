@@ -19,6 +19,7 @@
     "autoprefixer": "^10.4.20",
     "bits-ui": "^0.22.0",
     "clsx": "^2.1.1",
+    "firebase-tools": "^13.33.0",
     "svelte": "^5.20.2",
     "svelte-check": "^4.1.4",
     "tailwind-merge": "^3.0.2",
