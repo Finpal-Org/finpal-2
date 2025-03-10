@@ -1,4 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query} from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { ReceiptData } from '../src/types';
 // import type ReceiptField from '../src/lib/Receipt.svelte';
@@ -10,7 +10,9 @@ const receiptCollection = collection(db, 'receipts'); //receipt collection ref
 export async function getReceipts() {
   //fetch receipts from firestore
   try {
-    const receiptDocs = await getDocs(receiptCollection); //1. fetch receipts docs
+    //1. before getting docs lets order them by create date (newest first)
+    const receiptsQuery= query(receiptCollection, orderBy("createdTime","desc")) //query collection, filter by order decending
+    const receiptDocs = await getDocs(receiptsQuery); //fetch filtered receipts docs
 
     //2.Loop over Receipts and store them in receipts array
 
