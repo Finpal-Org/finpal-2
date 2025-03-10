@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
@@ -20,6 +22,7 @@
     "bits-ui": "^0.22.0",
     "clsx": "^2.1.1",
     "firebase-tools": "^13.33.0",
+    "lucide-svelte": "^0.479.0",
     "svelte": "^5.20.2",
     "svelte-check": "^4.1.4",
     "tailwind-merge": "^3.0.2",
@@ -31,6 +34,7 @@
   "dependencies": {
     "firebase": "^11.4.0",
     "mode-watcher": "^0.5.1",
-    "svelte-spa-router": "^4.0.1"
+    "svelte-spa-router": "^4.0.1",
+    "tailwindcss-animate": "^1.0.7"
   }
 }
