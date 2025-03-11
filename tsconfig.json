@@ -10,7 +10,7 @@
       "$lib": ["./src/lib"],
       "$lib/*": ["./src/lib/*"]
     },
-    "allowImportingTsExtensions": true,
+    // "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true
   }

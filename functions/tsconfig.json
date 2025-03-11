@@ -13,5 +13,11 @@
   "compileOnSave": true,
   "include": [
     "src"
-  ]
+  ],
+  // TODO: ADDED THIS IDK
+  "parserOptions": {
+    "project": ["tsconfig.json", "tsconfig.dev.json", "tsconfig.eslint.json"],
+    "sourceType": "module",
+    // "ignoredCompilerOptions": ["allowImportingTsExtensions"]
+  }
 }

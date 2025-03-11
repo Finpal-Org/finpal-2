@@ -26,7 +26,7 @@ export async function getReceipts() {
       const merchantContent =
         rawData && rawData.merchantName && rawData.merchantName.content
           ? rawData.merchantName.content
-          : 'Merchant';
+          : 'Unknown';
 
       const addressContent =
         rawData && rawData.address && rawData.address.content
