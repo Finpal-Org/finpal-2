@@ -35,7 +35,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
     // Headers for the API request
     const headers = {
       'Ocp-Apim-Subscription-Key': key,
-      'Content-Type': file.type,
+      'Content-Type': file.type
     };
 
     statusMessage = 'Analyzing receipt using Azure Document Intelligence...';
@@ -46,7 +46,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
       //give url + headers + method to azure
       method: 'POST',
       headers: headers,
-      body: fileData,
+      body: fileData
     });
 
     statusMessage = `Status code: ${response.status}`; //response success ?
@@ -62,7 +62,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
       // get pollheaders from operation location...
       if (operationLocation) {
         const pollHeaders = {
-          'Ocp-Apim-Subscription-Key': key,
+          'Ocp-Apim-Subscription-Key': key
         };
 
         // Step 2: Poll until the analysis is complete
@@ -76,7 +76,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
 
           // Check operation status
           const operationResponse = await fetch(operationLocation, {
-            headers: pollHeaders, //operation headers to identify our operation
+            headers: pollHeaders //operation headers to identify our operation
           });
 
           statusMessage = `Poll status code: ${operationResponse.status}`;
@@ -104,14 +104,10 @@ export async function analyzeReceipt(file: File): Promise<any> {
 
               return extracted;
             } else if (status === 'failed') {
-              throw new Error(
-                `Analysis failed: ${JSON.stringify(result.errors)}`
-              );
+              throw new Error(`Analysis failed: ${JSON.stringify(result.errors)}`);
             }
           } else {
-            throw new Error(
-              `Error response: ${await operationResponse.text()}`
-            );
+            throw new Error(`Error response: ${await operationResponse.text()}`);
           }
         }
         throw new Error('Maximum polling attempts reached without success');
@@ -143,10 +139,7 @@ export function extractResults(result: any) {
       const documents = analyzeResult.documents || [];
       if (documents.length) {
         // debug: check fields avaiable in receipt doc
-        console.log(
-          'Document fields available:',
-          Object.keys(documents[0].fields || {})
-        );
+        console.log('Document fields available:', Object.keys(documents[0].fields || {}));
       }
     }
   }
@@ -179,29 +172,31 @@ export function extractResults(result: any) {
       currency: 'currencyCode',
       transactionId: 'TransactionId',
       items: 'Items',
-      tags: 'Tags',
+      tags: 'Tags'
     };
 
     // Extract content & confidence fields from azure's fields
     for (const [ourField, azureField] of Object.entries(fieldMapping)) {
       if (azureField in fields) {
         // create our own fields in extracted, get their values from azures fields
-        extracted[ourField] = {
-          content: fields[azureField].content || '',
-          confidence: fields[azureField].confidence || 0,
-        };
+        extracted[ourField] = fields[azureField].content || ''; //ex address = content no nesting
+        // extracted[ourField] = {
+        //   content: fields[azureField].content || '',
+        //   confidence: fields[azureField].confidence || 0
+        // };
       }
     }
 
     // Handle receipt type / category
     if ('ReceiptType' in fields) {
-      extracted.category = {
-        content: fields.ReceiptType.valueString || 'Other', //valueString here is different for receipt type
-        confidence: fields.ReceiptType.confidence || 0,
-      };
+      extracted.category = fields.ReceiptType.valueString || 'Other'; // address = content no nesting
+      // extracted.category = {
+      //   content: fields.ReceiptType.valueString || 'Other', //valueString here is different for receipt type
+      //   confidence: fields.ReceiptType.confidence || 0
+      // };
     }
 
-    // Handle complex items data
+    // Handle complex items data, TODO: flatten items like in mobile
     if ('Items' in fields) {
       const itemsField = fields.Items;
       const itemsArray = [];
@@ -212,39 +207,52 @@ export function extractResults(result: any) {
 
           if ('valueObject' in item) {
             const valueObj = item.valueObject;
-
             if ('Description' in valueObj) {
-              itemProperties.Description = {
-                content: valueObj.Description.content || '',
-                confidence: valueObj.Description.confidence || 0,
-              };
+              itemProperties.description = valueObj.Description.content || '';
             }
-
             if ('Quantity' in valueObj) {
-              itemProperties.Quantity = {
-                content: valueObj.Quantity.content || '',
-                confidence: valueObj.Quantity.confidence || 0,
-              };
+              itemProperties.quantity = valueObj.Quantity.content || '';
             }
-
             if ('TotalPrice' in valueObj) {
-              itemProperties.Amount = {
-                content: valueObj.TotalPrice.content || '',
-                confidence: valueObj.TotalPrice.confidence || 0,
-                currency:
-                  valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR',
-              };
+              itemProperties.amount = valueObj.TotalPrice.content || '';
             }
+            // flatten currency code
+            if ('TotalPrice' in valueObj) {
+              itemProperties.currency = valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR';
+            }
+            // if ('Description' in valueObj) {
+            //   itemProperties.Description = {
+            //     content: valueObj.Description.content || '',
+            //     confidence: valueObj.Description.confidence || 0
+            //   };
+            // }
+
+            // if ('Quantity' in valueObj) {
+            //   itemProperties.Quantity = {
+            //     content: valueObj.Quantity.content || '',
+            //     confidence: valueObj.Quantity.confidence || 0
+            //   };
+            // }
+
+            // if ('TotalPrice' in valueObj) {
+            //   itemProperties.Amount = {
+            //     content: valueObj.TotalPrice.content || '',
+            //     confidence: valueObj.TotalPrice.confidence || 0,
+            //     currency: valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR'
+            //   };
+            // }
           }
 
           itemsArray.push(itemProperties);
         }
       }
 
-      extracted.items = {
-        content: itemsArray,
-        confidence: itemsField.confidence || 0,
-      };
+      // extracted.items = {
+      //   content: itemsArray,
+      //   confidence: itemsField.confidence || 0
+      // };
+
+      extracted.items = itemsArray; // no nesting for items
     }
 
     // Handle tags, todo do we need?
@@ -263,20 +271,16 @@ export function extractResults(result: any) {
     extracted.createdTime = new Date();
   } catch (error) {
     return {
-      error: `Extracting fields error: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      error: `Extracting fields error: ${error instanceof Error ? error.message : String(error)}`
     };
   }
+  console.log('The Flat Extracted Object ', extracted);
 
   return extracted;
 }
 
-/**
- * Saves receipt data to Firestore
- * @param data The extracted receipt data
- * @returns Promise that resolves when data is saved
- */
+// Saves receipt data to Firestore
+
 export async function saveToFirestore(data: any): Promise<void> {
   try {
     const docRef = await addDoc(collection(db, 'receipts'), data); // add receipt in a new doc inside receipt collection

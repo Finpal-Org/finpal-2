@@ -45,7 +45,7 @@ export const processUploadReceipt = onObjectFinalized(async (event) => {
     console.log(`Created File-like object: ${fileName}, ${fileSize} bytes, ${fileType}`);
 
     //4. process the file
-    const result = await analyzeReceipt(mockFile); //todo currently forcing a file mock as arg
+    const result = await analyzeReceipt(mockFile); //TODO: currently forcing a file mock as arg
 
     console.log('Receipt analysis complete!', result);
 
