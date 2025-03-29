@@ -23,4 +23,6 @@ export interface ReceiptData {
     quantity: string;
   }[];
   address?: string;
+  // todo is there currency ?
+  // currency: string;
 }
