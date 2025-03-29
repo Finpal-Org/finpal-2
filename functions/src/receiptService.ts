@@ -1,23 +1,22 @@
 // Import necessary Firebase modules
 // import { initializeApp } from 'firebase/app';
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore } from 'firebase-admin/firestore';
 // import { db } from '../../firebase/firebaseConfig';
 
 // Safe type assertion for environment variables
-const endpoint = process.env.VITE_AZURE_ENDPOINT || "";
-const key = process.env.VITE_AZURE_KEY || "";
+const endpoint = process.env.VITE_AZURE_ENDPOINT || '';
+const key = process.env.VITE_AZURE_KEY || '';
 const analyzeUrl = `${endpoint}documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30`;
 
 // Initialize Firestore
 const db = getFirestore();
 
+// 1. Analyzes a receipt image using Azure Document Intelligence API
+// 2. @param file The receipt file to analyze
+// 3. @return Promise with the analysis result
 
-  // 1. Analyzes a receipt image using Azure Document Intelligence API
-  // 2. @param file The receipt file to analyze
-  // 3. @return Promise with the analysis result
- 
 export async function analyzeReceipt(file: File): Promise<any> {
-  let statusMessage = "Preparing to analyze receipt...";
+  let statusMessage = 'Preparing to analyze receipt...';
   console.log(statusMessage);
 
   try {
@@ -27,7 +26,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
     console.log(statusMessage);
 
     if (fileSizeMB > 4) {
-      throw new Error("File size exceeds 4MB limit");
+      throw new Error('File size exceeds 4MB limit');
     }
 
     // Prepare the file data
@@ -35,19 +34,19 @@ export async function analyzeReceipt(file: File): Promise<any> {
 
     // Headers for the API request
     const headers = {
-      "Ocp-Apim-Subscription-Key": key,
-      "Content-Type": file.type,
+      'Ocp-Apim-Subscription-Key': key,
+      'Content-Type': file.type
     };
 
-    statusMessage = "Analyzing receipt using Azure Document Intelligence...";
+    statusMessage = 'Analyzing receipt using Azure Document Intelligence...';
     console.log(statusMessage);
 
     // Step 1: Send the image to Azure for analysis
     const response = await fetch(analyzeUrl, {
       // give url + headers + method to azure
-      method: "POST",
+      method: 'POST',
       headers: headers,
-      body: fileData,
+      body: fileData
     });
 
     statusMessage = `Status code: ${response.status}`; // response success ?
@@ -56,18 +55,18 @@ export async function analyzeReceipt(file: File): Promise<any> {
     // Operation Accepted from azure...
     if (response.status === 202) {
       // Get the operation-location URL to check the operation status
-      const operationLocation = response.headers.get("Operation-Location");
+      const operationLocation = response.headers.get('Operation-Location');
       statusMessage = `Operation started at: ${operationLocation}`;
       console.log(statusMessage);
 
       // get pollheaders from operation location...
       if (operationLocation) {
         const pollHeaders = {
-          "Ocp-Apim-Subscription-Key": key,
+          'Ocp-Apim-Subscription-Key': key
         };
 
         // Step 2: Poll until the analysis is complete
-        statusMessage = "Polling operation...";
+        statusMessage = 'Polling operation...';
         console.log(statusMessage);
 
         // Poll up to 10 times
@@ -77,7 +76,7 @@ export async function analyzeReceipt(file: File): Promise<any> {
 
           // Check operation status
           const operationResponse = await fetch(operationLocation, {
-            headers: pollHeaders, // operation headers to identify our operation
+            headers: pollHeaders // operation headers to identify our operation
           });
 
           statusMessage = `Poll status code: ${operationResponse.status}`;
@@ -91,37 +90,33 @@ export async function analyzeReceipt(file: File): Promise<any> {
             statusMessage = `Operation status: ${status}`;
             console.log(statusMessage);
 
-            if (status === "succeeded") {
-              statusMessage = "Analysis succeeded!";
+            if (status === 'succeeded') {
+              statusMessage = 'Analysis succeeded!';
               console.log(statusMessage);
               const extracted = extractResults(result); // format the json result from azure
 
               // Save to Firestore
               if (Object.keys(extracted).length > 0 && !extracted.error) {
                 await saveToFirestore(extracted);
-                statusMessage = "Results saved to Firestore!";
+                statusMessage = 'Results saved to Firestore!';
                 console.log(statusMessage);
               }
 
               return extracted;
-            } else if (status === "failed") {
-              throw new Error(
-                `Analysis failed: ${JSON.stringify(result.errors)}`
-              );
+            } else if (status === 'failed') {
+              throw new Error(`Analysis failed: ${JSON.stringify(result.errors)}`);
             }
           } else {
-            throw new Error(
-              `Error response: ${await operationResponse.text()}`
-            );
+            throw new Error(`Error response: ${await operationResponse.text()}`);
           }
         }
-        throw new Error("Maximum polling attempts reached without success");
+        throw new Error('Maximum polling attempts reached without success');
       }
     } else {
       throw new Error(`Error response: ${await response.text()}`);
     }
   } catch (error) {
-    console.error("Error with Azure API call:", error);
+    console.error('Error with Azure API call:', error);
     throw error;
   }
 }
@@ -134,20 +129,17 @@ export async function analyzeReceipt(file: File): Promise<any> {
 export function extractResults(result: any) {
   const extracted: any = {};
 
-  console.log("\nAPI RESPONSE STRUCTURE:");
+  console.log('\nAPI RESPONSE STRUCTURE:');
 
   // Debug information
-  if ("analyzeResult" in result) {
+  if ('analyzeResult' in result) {
     const analyzeResult = result.analyzeResult || {};
 
-    if ("documents" in analyzeResult) {
+    if ('documents' in analyzeResult) {
       const documents = analyzeResult.documents || [];
       if (documents.length) {
         // debug: check fields avaiable in receipt doc
-        console.log(
-          "Document fields available:",
-          Object.keys(documents[0].fields || {})
-        );
+        console.log('Document fields available:', Object.keys(documents[0].fields || {}));
       }
     }
   }
@@ -156,7 +148,7 @@ export function extractResults(result: any) {
     // Navigate to document fields
     const documents = result.analyzeResult?.documents || [];
     if (!documents.length) {
-      return {error: "No documents found in Azure result"};
+      return { error: 'No documents found in Azure result' };
     }
 
     // First document (the Result)
@@ -165,22 +157,22 @@ export function extractResults(result: any) {
 
     // Field mapping (our field names to Azure's field names)
     const fieldMapping: Record<string, string> = {
-      merchantName: "MerchantName",
-      address: "MerchantAddress",
-      phone: "MerchantPhoneNumber",
-      date: "TransactionDate",
-      time: "TransactionTime",
-      total: "Total",
-      subtotal: "Subtotal",
-      country: "CountryRegion",
-      taxDetails: "TaxDetails",
-      totalTax: "TotalTax",
-      tip: "Tip",
-      payment: "PaymentType",
-      currency: "currencyCode",
-      transactionId: "TransactionId",
-      items: "Items",
-      tags: "Tags",
+      merchantName: 'MerchantName',
+      address: 'MerchantAddress',
+      phone: 'MerchantPhoneNumber',
+      date: 'TransactionDate',
+      time: 'TransactionTime',
+      total: 'Total',
+      subtotal: 'Subtotal',
+      country: 'CountryRegion',
+      taxDetails: 'TaxDetails',
+      totalTax: 'TotalTax',
+      tip: 'Tip',
+      payment: 'PaymentType',
+      currency: 'currencyCode',
+      transactionId: 'TransactionId',
+      items: 'Items',
+      tags: 'Tags'
     };
 
     // Extract content & confidence fields from azure's fields
@@ -188,52 +180,51 @@ export function extractResults(result: any) {
       if (azureField in fields) {
         // create our own fields in extracted, get their values from azures fields
         extracted[ourField] = {
-          content: fields[azureField].content || "",
-          confidence: fields[azureField].confidence || 0,
+          content: fields[azureField].content || '',
+          confidence: fields[azureField].confidence || 0
         };
       }
     }
 
     // Handle receipt type / category
-    if ("ReceiptType" in fields) {
+    if ('ReceiptType' in fields) {
       extracted.category = {
-        content: fields.ReceiptType.valueString || "Other", // valueString here is different for receipt type
-        confidence: fields.ReceiptType.confidence || 0,
+        content: fields.ReceiptType.valueString || 'Other', // valueString here is different for receipt type
+        confidence: fields.ReceiptType.confidence || 0
       };
     }
 
     // Handle complex items data
-    if ("Items" in fields) {
+    if ('Items' in fields) {
       const itemsField = fields.Items;
       const itemsArray = [];
 
-      if ("valueArray" in itemsField) {
+      if ('valueArray' in itemsField) {
         for (const item of itemsField.valueArray || []) {
           const itemProperties: any = {};
 
-          if ("valueObject" in item) {
+          if ('valueObject' in item) {
             const valueObj = item.valueObject;
 
-            if ("Description" in valueObj) {
+            if ('Description' in valueObj) {
               itemProperties.Description = {
-                content: valueObj.Description.content || "",
-                confidence: valueObj.Description.confidence || 0,
+                content: valueObj.Description.content || '',
+                confidence: valueObj.Description.confidence || 0
               };
             }
 
-            if ("Quantity" in valueObj) {
+            if ('Quantity' in valueObj) {
               itemProperties.Quantity = {
-                content: valueObj.Quantity.content || "",
-                confidence: valueObj.Quantity.confidence || 0,
+                content: valueObj.Quantity.content || '',
+                confidence: valueObj.Quantity.confidence || 0
               };
             }
 
-            if ("TotalPrice" in valueObj) {
+            if ('TotalPrice' in valueObj) {
               itemProperties.Amount = {
-                content: valueObj.TotalPrice.content || "",
+                content: valueObj.TotalPrice.content || '',
                 confidence: valueObj.TotalPrice.confidence || 0,
-                currency:
-                  valueObj.TotalPrice.valueCurrency?.currencyCode || "SAR",
+                currency: valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR'
               };
             }
           }
@@ -244,12 +235,12 @@ export function extractResults(result: any) {
 
       extracted.items = {
         content: itemsArray,
-        confidence: itemsField.confidence || 0,
+        confidence: itemsField.confidence || 0
       };
     }
 
     // Handle tags, todo do we need?
-    if ("Tags" in result.analyzeResult) {
+    if ('Tags' in result.analyzeResult) {
       extracted.tags = result.analyzeResult.Tags || {};
     }
 
@@ -264,9 +255,7 @@ export function extractResults(result: any) {
     extracted.createdTime = new Date();
   } catch (error) {
     return {
-      error: `Extracting fields error: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      error: `Extracting fields error: ${error instanceof Error ? error.message : String(error)}`
     };
   }
 
@@ -280,10 +269,10 @@ export function extractResults(result: any) {
  */
 export async function saveToFirestore(data: any): Promise<void> {
   try {
-    const docRef = await db.collection("receipts").add(data); // add receipt in a new doc inside receipt collection
-    console.log("Receipt saved to Firestore with ID:", docRef.id);
+    const docRef = await db.collection('receipts').add(data); // add receipt in a new doc inside receipt collection
+    console.log('Receipt saved to Firestore with ID:', docRef.id);
   } catch (error) {
-    console.error("Error saving to Firestore:", error);
+    console.error('Error saving to Firestore:', error);
     throw error;
   }
 }

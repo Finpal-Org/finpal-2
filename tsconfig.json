@@ -1,17 +1,23 @@
 {
   "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "$lib": ["./src/lib"],
       "$lib/*": ["./src/lib/*"]
     },
-    // "allowImportingTsExtensions": true,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "./build",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   }
 }

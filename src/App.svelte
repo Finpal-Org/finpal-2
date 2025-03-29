@@ -4,6 +4,7 @@
   import Home from './lib/HomePage.svelte';
   import Receipt from './lib/ReceiptPage.svelte';
   import Auth from './lib/AuthPage.svelte';
+  import AiChat from './lib/AiChatPage.svelte';
   import Navbar from './lib/components/Navbar.svelte';
   import Router from 'svelte-spa-router';
   import { ModeWatcher, toggleMode } from 'mode-watcher';
@@ -29,6 +30,7 @@
   $: routes = {
     '/': isAuthenticated ? Home : Auth,
     '/receipts': isAuthenticated ? Receipt : Auth,
+    '/aichat': isAuthenticated ? AiChat : Auth,
     '/auth': Auth,
     '*': isAuthenticated ? Home : Auth
   };

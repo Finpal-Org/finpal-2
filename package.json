@@ -35,7 +35,10 @@
     "vite": "^6.2.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "deepseek-mcp-server": "^0.2.1",
+    "dotenv": "^16.4.7",
     "firebase": "^11.4.0",
     "mode-watcher": "^0.5.1",
     "svelte-spa-router": "^4.0.1",

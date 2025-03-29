@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_AZURE_ENDPOINT: string;
   readonly VITE_AZURE_KEY: string;
+  readonly VITE_DEEPSEEK_API_KEY: string;
+  readonly VITE_DEEPSEEK_SERVER_URL: string;
 }
 
 interface ImportMeta {

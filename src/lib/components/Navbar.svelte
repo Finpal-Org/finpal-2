@@ -30,6 +30,7 @@
   }
 </script>
 
+<!-- Mobile Navbar -->
 <div class="my-1 lg:hidden">
   <Sheet.Root>
     <Sheet.SheetTrigger>
@@ -64,7 +65,7 @@
         <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
           Receipts
         </a>
-        <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
+        <a href="/#/aichat" class="text-lg font-medium transition-colors hover:text-primary">
           AI Chat
         </a>
         <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
@@ -111,7 +112,7 @@
       <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">
         Receipts
       </a>
-      <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">
+      <a href="/#/aichat" class="text-sm font-medium transition-colors hover:text-primary">
         AI Chat
       </a>
       <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">

@@ -74,7 +74,7 @@
                       <CardDescription>{receipt?.category || 'Other'}</CardDescription>
                     </div>
                     <div class="flex">
-                      <ReceiptEdit />
+                      <ReceiptEdit {receipt} />
                     </div>
                   </CardHeader>
 
