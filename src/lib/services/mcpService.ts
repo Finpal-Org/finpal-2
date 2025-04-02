@@ -20,74 +20,73 @@
 
 //#1 STEP Basic Client Structure: create the basic client class in index.ts todo is index.ts right?
 
-//1. set the LLM key
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
-if (!DEEPSEEK_API_KEY) {
-  throw new Error('DEEPSEEK_API_KEY is not set');
-}
-
-// Frontend MCP Client to interact with the backend API
+/**
+ * MCPClient - API client to connect to our Python backend with MCP tool support
+ * This service handles all communication with the AI backend server.
+ */
 export class MCPClient {
   private apiUrl: string;
   private isConnected: boolean = false;
   private tools: any[] = [];
 
   constructor() {
+    // Get backend URL from environment or use default
     this.apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
   }
 
   /**
-   * Connect to the MCP server through the backend
-   * @param serverScriptPath Path to the MCP server script
+   * Connect to the AI backend server
+   * The serverScriptPath param is kept for compatibility but not used
    */
   async connectToServer(serverScriptPath: string): Promise<boolean> {
     try {
-      // First check if backend is alive
+      // Check if the backend is running
       const healthResponse = await fetch(`${this.apiUrl}/api/health`);
       const healthData = await healthResponse.json();
 
-      // If already connected, just return true
+      // If health check shows connected, we're good
       if (healthData.connected) {
         this.isConnected = true;
         await this.fetchTools();
         return true;
       }
 
-      // Otherwise try to connect using the provided path
+      // Otherwise try to initialize connection
       const response = await fetch(`${this.apiUrl}/api/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ serverPath: serverScriptPath })
+        body: JSON.stringify({}) // We don't need serverPath anymore
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to connect to MCP server: ${response.statusText}`);
+        throw new Error(`Failed to connect to AI service: ${response.statusText}`);
       }
 
       const data = await response.json();
       this.isConnected = data.status === 'connected';
 
-      if (this.isConnected) {
-        this.tools = data.tools || [];
+      // Store available tools
+      if (this.isConnected && data.tools) {
+        this.tools = data.tools;
+        console.log(`Connected with ${this.tools.length} tools available`);
       }
 
       return this.isConnected;
     } catch (error) {
-      console.error('Error connecting to MCP server:', error);
+      console.error('Error connecting to AI service:', error);
       this.isConnected = false;
       return false;
     }
   }
 
   /**
-   * Process a query using the MCP server
-   * @param query The user's query to process
+   * Process a user message through the AI
    */
   async processQuery(query: string): Promise<string> {
     if (!this.isConnected) {
-      return 'Error: Not connected to the MCP service. Please try again later.';
+      return 'Error: Not connected to the AI service. Please try again later.';
     }
 
     try {
@@ -112,7 +111,7 @@ export class MCPClient {
   }
 
   /**
-   * Get the available tools from the MCP server
+   * Fetch available tools from the backend
    */
   private async fetchTools(): Promise<void> {
     try {
@@ -127,42 +126,16 @@ export class MCPClient {
   }
 
   /**
-   * Check if connected to the MCP server
+   * Check if connected to the AI service
    */
   isServerConnected(): boolean {
     return this.isConnected;
   }
 
   /**
-   * Get available tools
+   * Get list of available tools
    */
   getTools(): any[] {
     return this.tools;
   }
 }
-
-//todo Main Entry Point (remove not for web app)
-// async function main() {
-//   if (process.argv.length < 3) {
-//     console.log('Usage: node index.ts <path_to_server_script>');
-//     return;
-//   }
-//   const mcpClient = new MCPClient();
-//   try {
-//     await mcpClient.connectToServer(process.argv[2]);
-//     await mcpClient.chatLoop();
-//   } finally {
-//     await mcpClient.cleanup();
-//     process.exit(0);
-//   }
-// }
-
-// main();
-
-// todo Running client where?
-// # Build TypeScript
-// npm run build
-
-// # Run the client
-// node build/index.js path/to/server.py # python server
-// node build/index.js path/to/build/index.js # node server

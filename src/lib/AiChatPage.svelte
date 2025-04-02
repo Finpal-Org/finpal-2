@@ -12,41 +12,40 @@
   import { ScrollArea } from './components/ui/scroll-area';
   import { ArrowUp, Bot, User } from 'lucide-svelte';
   import { MCPClient } from './services/mcpService';
-  import type { ReceiptData } from '../types';
   import { onMount } from 'svelte';
 
-  let mcpClient: MCPClient; //mcp type safety
+  // Create our API client
+  let apiClient: MCPClient; //the api variable
   let isConnected = false; // connection state
 
-  // Initialize the client server connection when component mounts
-  async function initMCP() {
+  // Initialize connection to the backend API
+  async function initConnection() {
     try {
-      mcpClient = new MCPClient();
-      // Use the server path from environment variables
-      const serverPath =
-        import.meta.env.VITE_MCP_SERVER_PATH || './node_modules/.bin/deepseek-mcp-server';
-      isConnected = await mcpClient.connectToServer(serverPath);
+      // Create the client
+      apiClient = new MCPClient();
+
+      // Connect to backend (the parameter isn't used anymore but kept for compatibility)
+      isConnected = await apiClient.connectToServer('');
+
       if (isConnected) {
-        console.log('MCP connection started');
+        console.log('AI service connected successfully');
       } else {
-        throw new Error('Failed to connect to MCP server');
+        throw new Error('Failed to connect to AI service');
       }
     } catch (err) {
-      console.log('MCP connection Failed: ' + err);
-      // llm err msg
+      console.log('AI connection Failed: ' + err);
       messages = [
         ...messages,
         {
           role: 'assistant',
           content:
-            'Sorry, I failed to connect to the AI service. Please refresh the page or check if the backend server is running.'
+            'Sorry, I failed to connect to the AI service. Please make sure the backend is running at http://localhost:3001'
         }
       ];
     }
   }
 
   // Initialize chat state with a welcome message
-  // This array will store all messages in the conversation
   let messages: Array<{ role: 'user' | 'assistant'; content: any }> = [
     {
       role: 'assistant',
@@ -58,31 +57,38 @@
   let userInput = '';
   let isLoading = false;
 
-  // Main function to handle sending messages
+  // Send a message to the AI service
   async function handleSendMessage() {
-    // Prevent sending empty messages
+    // Don't send empty messages
     if (!userInput.trim()) return;
 
-    //if not connected exit
+    // Check if we're connected to the backend
     if (!isConnected) {
       messages = [
         ...messages,
         {
           role: 'assistant',
-          content: 'Not connected to AI service. Please wait or refresh the page.'
+          content: 'Not connected to AI service. Please make sure the backend is running.'
         }
       ];
       return;
     }
+
+    // Don't send if already waiting or if input is empty
     if (!userInput.trim() || isLoading) return;
 
     try {
       const messageToSend = userInput.trim();
       isLoading = true;
+
+      // Add user message to the chat
       messages = [...messages, { role: 'user', content: messageToSend }];
       userInput = '';
 
-      const response = await mcpClient.processQuery(messageToSend);
+      // Send to backend and get response
+      const response = await apiClient.processQuery(messageToSend);
+
+      // Add AI response to the chat
       messages = [...messages, { role: 'assistant', content: response }];
     } catch (error) {
       console.error('Error processing message:', error);
@@ -95,8 +101,7 @@
     }
   }
 
-  // Handle keyboard events for better UX
-  // Allows sending messages with Enter key (but not with Shift+Enter for new lines)
+  // Send message when Enter key is pressed (not Shift+Enter)
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -104,9 +109,9 @@
     }
   }
 
-  // on mount connect to mcp server
+  // Connect to the backend when the component loads
   onMount(() => {
-    initMCP();
+    initConnection();
   });
 </script>
 

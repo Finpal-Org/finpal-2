@@ -1,0 +1,2 @@
+# pydantic-ai>=0.1.0
+# mission-control-protocol>=0.1.0 

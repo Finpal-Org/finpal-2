@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 *.env
 *.pdf
+venv
 
 # Firebase key
 firebase-key.json
+*mcp_config.json
