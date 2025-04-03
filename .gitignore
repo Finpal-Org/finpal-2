@@ -29,3 +29,6 @@ venv
 # Firebase key
 firebase-key.json
 *mcp_config.json
+
+#mcp
+browser-tools-mcp

@@ -44,10 +44,30 @@ export class MCPClient {
       const healthResponse = await fetch(`${this.apiUrl}/api/health`);
       const healthData = await healthResponse.json();
 
-      // If health check shows connected, we're good
+      // If health check shows connected, we should explicitly get the tools
       if (healthData.connected) {
         this.isConnected = true;
-        await this.fetchTools();
+
+        // Always get a fresh list of tools via POST to /api/connect
+        const connectResponse = await fetch(`${this.apiUrl}/api/connect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+
+        if (connectResponse.ok) {
+          const connectData = await connectResponse.json();
+          if (connectData.tools) {
+            this.tools = connectData.tools;
+            console.log(`Connected with ${this.tools.length} tools available`);
+          }
+        } else {
+          // Fallback to /api/tools if /api/connect fails
+          await this.fetchTools();
+        }
+
         return true;
       }
 

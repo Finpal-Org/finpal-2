@@ -20,7 +20,7 @@ sys.path.insert(0, str(backend_dir))
 
 # basic logging
 logging.basicConfig(
-    level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 # the class or local excuter of all MCP servers
 class MCPClient:
@@ -48,14 +48,30 @@ class MCPClient:
         # loop over servers and initialize them
         for server in self.servers:
             try:
+                logging.debug(f"Initializing server: {server.name}")
                 await server.initialize() # init server
+                logging.debug(f"Creating pydantic tools for server: {server.name}")
                 tools = await server.create_pydantic_ai_tools() # create pydantic tools
+                logging.debug(f"Found {len(tools)} tools in server: {server.name}")
+                for tool in tools:
+                    logging.debug(f"  - {tool.name}")
                 self.tools += tools # add tools to list
             except Exception as e:
-                logging.error(f"Failed to initialize server: {e}")
-                await self.cleanup_servers()
-                return []
+                logging.error(f"Failed to initialize server {server.name}: {e}")
+                logging.error(f"Error details: {type(e).__name__}: {e}")
+                import traceback
+                logging.error(f"Traceback: {traceback.format_exc()}")
+                # Continue with other servers instead of exiting early
+                # Just clean up the failed server
+                try:
+                    await server.cleanup()
+                except Exception as cleanup_error:
+                    logging.error(f"Error cleaning up failed server {server.name}: {cleanup_error}")
 
+        # Only call cleanup_servers if we couldn't initialize any servers
+        if not self.tools:
+            logging.warning("No tools were found from any servers")
+            
         return self.tools
 
     async def cleanup_servers(self) -> None:
@@ -63,8 +79,9 @@ class MCPClient:
         for server in self.servers:
             try:
                 await server.cleanup()
-            except Exception as e:
+            except (asyncio.CancelledError, Exception) as e:
                 logging.warning(f"Warning during cleanup of server {server.name}: {e}")
+                # Don't propagate the CancelledError, as we're already cleaning up
 
     async def cleanup(self) -> None:
         """Clean up all resources including the exit stack."""
@@ -72,7 +89,10 @@ class MCPClient:
             # First clean up all servers
             await self.cleanup_servers()
             # Then close the exit stack
-            await self.exit_stack.aclose()
+            try:
+                await self.exit_stack.aclose()
+            except (asyncio.CancelledError, Exception) as e:
+                logging.warning(f"Warning during exit stack cleanup: {e}")
         except Exception as e:
             logging.warning(f"Warning during final cleanup: {e}")
 
@@ -96,7 +116,8 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
             else self.config["command"]
         )
         if command is None:
-            raise ValueError("The command must be a valid string and cannot be None.")
+            raise ValueError(f"The command '{self.config['command']}' could not be found in PATH. Make sure it's installed.")
+        
         #next is identifying the parameters of the server
         server_params = StdioServerParameters(
             command=command,
@@ -106,26 +127,44 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
             else None,
         )
         try:
+            logging.debug(f"Starting MCP server: {self.name} with command: {command} {' '.join(self.config['args'])}")
+            
             #Make the connection to the server via stdio
             stdio_transport = await self.exit_stack.enter_async_context(
                 stdio_client(server_params)
             )
             read, write = stdio_transport #read and write to the server
+            
+            logging.debug(f"Server {self.name} stdio connection established, creating session")
             session = await self.exit_stack.enter_async_context(
                 ClientSession(read, write)
             )
+            
+            logging.debug(f"Initializing session for server: {self.name}")
             await session.initialize() # finally initialize the session
             self.session = session #store the *session*
+            logging.debug(f"Server {self.name} initialized successfully")
         except Exception as e:
             logging.error(f"Error initializing server {self.name}: {e}")
+            logging.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
             await self.cleanup()
             raise
 
     # take the tools from the server and convert them to pydantic_ai Tools
     async def create_pydantic_ai_tools(self) -> List[PydanticTool]: 
         """Convert MCP tools to pydantic_ai Tools."""
-        tools = (await self.session.list_tools()).tools #get list of tools
-        return [self.create_tool_instance(tool) for tool in tools] #convert each tool to a pydantic_ai Tool
+        try:
+            tools = (await self.session.list_tools()).tools #get list of tools
+            return [self.create_tool_instance(tool) for tool in tools] #convert each tool to a pydantic_ai Tool
+        except Exception as e:
+            logging.error(f"Error listing tools for server {self.name}: {e}")
+            logging.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
+            # Return empty list if we can't get tools
+            return []
 
 # actual excute the tool
     def create_tool_instance(self, tool: MCPTool) -> PydanticTool:#we take mcp tool -> pydantic tool
@@ -134,8 +173,27 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
             return await self.session.call_tool(tool.name, arguments=kwargs)
 
         async def prepare_tool(ctx: RunContext, tool_def: ToolDefinition) -> ToolDefinition | None:
-            tool_def.parameters_json_schema = tool.inputSchema #input schema for parameters to know query
+            # Make sure the input schema has the proper format for pydantic-ai
+            input_schema = tool.inputSchema.copy()
+            
+            # Add type if missing
+            if 'type' not in input_schema:
+                input_schema['type'] = 'object'
+                
+            # Remove $schema field if present
+            if '$schema' in input_schema:
+                del input_schema['$schema']
+                
+            # Clean properties
+            if 'properties' in input_schema:
+                for prop in input_schema['properties'].values():
+                    if isinstance(prop, dict) and '$schema' in prop:
+                        del prop['$schema']
+            
+            # Set the cleaned schema
+            tool_def.parameters_json_schema = input_schema
             return tool_def
+            
         # tool attributes
         return PydanticTool(
             execute_tool,
@@ -150,7 +208,10 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
         """Clean up server resources."""
         async with self._cleanup_lock:
             try:
-                await self.exit_stack.aclose()
+                try:
+                    await self.exit_stack.aclose()
+                except (asyncio.CancelledError, Exception) as e:
+                    logging.warning(f"Warning while closing exit stack for server {self.name}: {e}")
                 self.session = None
                 self.stdio_context = None
             except Exception as e:

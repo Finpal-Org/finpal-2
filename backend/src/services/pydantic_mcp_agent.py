@@ -6,17 +6,24 @@ import asyncio
 import pathlib
 import sys
 import os
+import traceback
 
 # Set up paths to make imports work
 current_dir = pathlib.Path(__file__).parent.resolve()
 backend_dir = current_dir.parent.parent
 sys.path.insert(0, str(backend_dir))
 
+print(f"Current directory: {current_dir}")
+print(f"Backend directory: {backend_dir}")
+print(f"Current sys.path: {sys.path}")
+
 try:
     from pydantic_ai import Agent
     from pydantic_ai.models.gemini import GeminiModel
     from pydantic_ai.providers.google_gla import GoogleGLAProvider
-except ImportError:
+    print("Successfully imported pydantic_ai modules")
+except ImportError as e:
+    print(f"Error importing pydantic_ai: {e}")
     print("Error: Required packages not found. Please install with:")
     print("pip install pydantic-ai python-dotenv rich")
     sys.exit(1)
@@ -25,21 +32,33 @@ except ImportError:
 MCPClient = None
 try:
     # First try the dot import (when running as module)
+    print("Trying dot import for MCPClient...")
     from .mcp_client import MCPClient
-except (ImportError, ValueError):
+    print("Dot import successful")
+except (ImportError, ValueError) as e:
+    print(f"Dot import failed: {e}")
     try:
         # Then try absolute import (when running as script)
+        print("Trying absolute import for MCPClient...")
         from services.mcp_client import MCPClient
-    except (ImportError, ValueError):
-        print("Warning: MCP client not found. Tools will not be available.")
+        print("Absolute import successful")
+    except (ImportError, ValueError) as e:
+        print(f"Absolute import failed: {e}")
+        try:
+            print("Trying src.services.mcp_client import...")
+            from src.services.mcp_client import MCPClient
+            print("src.services.mcp_client import successful")
+        except (ImportError, ValueError) as e:
+            print(f"src.services.mcp_client import failed: {e}")
+            print("Warning: MCP client not found. Tools will not be available.")
 
 # Get the directory where the current script is located
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 
 # Define the path to the config file relative to the script directory
-CONFIG_FILE = r"C:\Users\Unran\Desktop\finpal-svelte\backend\mcp_config.json"
-# or alternatively:
-# CONFIG_FILE = "C:/Users/Unran/Desktop/finpal-svelte/backend/mcp_config.json"
+CONFIG_FILE = os.path.join(backend_dir, "mcp_config.json")
+print(f"CONFIG_FILE path: {CONFIG_FILE}")
+print(f"CONFIG_FILE exists: {os.path.exists(CONFIG_FILE)}")
 
 # Load environment variables from both root and backend directory
 root_env_path = pathlib.Path(__file__).parent.parent.parent.parent / '.env'
@@ -70,11 +89,13 @@ def get_model():
         print("Please set LLM_API_KEY or GEMINI_API_KEY in your .env file")
         
     # Explicitly pass the API key rather than relying on environment detection
-    return GeminiModel(
-        model_name, 
-        provider=GoogleGLAProvider(api_key=api_key),
-        generation_config={"temperature": 0.3}
+    model = GeminiModel(
+        model_name,
+        provider=GoogleGLAProvider(api_key=api_key)
     )
+    return model
+
+
 
 # IMPORTANT: The function that gets the agent for other files to use
 async def get_pydantic_ai_agent():
@@ -83,18 +104,80 @@ async def get_pydantic_ai_agent():
     This is the main function used by the API to get an agent instance.
     """
     if MCPClient is None:
-        print("Warning: Using AI agent without MCP tools")
+        print("Warning: Using AI agent without MCP tools (MCPClient is None)")
         return None, Agent(model=get_model())
     
     try:
         # Initialize MCP client with all tools from config
+        print("Creating MCPClient instance...")
         client = MCPClient()
+        print("Loading servers from config...")
         client.load_servers(str(CONFIG_FILE))
-        tools = await client.start()
-        print(f"Loaded {len(tools)} MCP tools: {', '.join(t.name for t in tools) if tools else 'none'}")
-        return client, Agent(model=get_model(), tools=tools)
+        
+        try:
+            print("Starting MCP client and loading tools...")
+            tools = await client.start()
+            print(f"Client started successfully, found {len(tools)} tools")
+            
+            # Modified: Even if tools is empty, we'll log but continue
+            if not tools:
+                print("No tools were found by the MCP client!")
+                print("Check that your MCP servers are properly configured.")
+                print("Using AI agent without tools")
+                return client, Agent(model=get_model())
+            else:
+                # Clean tool schemas to remove $schema fields - Gemini doesn't like them
+                print("Cleaning tool schemas...")
+                for tool in tools:
+                    if hasattr(tool, 'parameters') and isinstance(tool.parameters, dict):
+                        if '$schema' in tool.parameters:
+                            del tool.parameters['$schema']
+                        # Also clean nested properties
+                        if 'properties' in tool.parameters:
+                            for prop in tool.parameters['properties'].values():
+                                if isinstance(prop, dict) and '$schema' in prop:
+                                    del prop['$schema']
+                        
+                        # Make sure all tool parameters have the right schema format
+                        if not tool.parameters.get('type'):
+                            tool.parameters['type'] = 'object'
+                
+                # Debug: Print tools that are available
+                for tool in tools:
+                    print(f"Tool available: {tool.name} - {tool.description}")
+                
+                print(f"Loaded {len(tools)} MCP tools: {', '.join(t.name for t in tools) if tools else 'none'}")
+                
+                # Create basic agent first
+                agent = Agent(model=get_model())
+                
+                # Then manually set the tools attribute
+                # This is a workaround for potential issues in the Pydantic-AI library
+                agent.tools = tools
+                
+                # Verify tools were correctly set
+                print(f"Agent created with {len(agent.tools) if hasattr(agent, 'tools') else 0} tools")
+                return client, agent
+                
+        except asyncio.CancelledError as e:
+            print(f"MCP client initialization was cancelled: {e}")
+            print(f"Stack trace: {traceback.format_exc()}")
+            print("Falling back to AI agent without tools")
+            return None, Agent(model=get_model())
+        except Exception as e:
+            print(f"Error starting MCP client: {e}")
+            print(f"Stack trace: {traceback.format_exc()}")
+            print("Falling back to AI agent without tools")
+            return None, Agent(model=get_model())
+        
+    except asyncio.CancelledError as e:
+        print(f"MCP client initialization was cancelled: {e}")
+        print(f"Stack trace: {traceback.format_exc()}")
+        print("Falling back to AI agent without tools")
+        return None, Agent(model=get_model())
     except Exception as e:
         print(f"Error initializing MCP client: {e}")
+        print(f"Stack trace: {traceback.format_exc()}")
         print("Falling back to AI agent without tools")
         return None, Agent(model=get_model())
 

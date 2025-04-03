@@ -3,8 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-from services.pydantic_mcp_agent import get_pydantic_ai_agent
-
+from src.services.pydantic_mcp_agent import get_pydantic_ai_agent
 # Create a new FastAPI app (this is our web server)
 app = FastAPI()
 

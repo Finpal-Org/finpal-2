@@ -17,6 +17,7 @@
   // Create our API client
   let apiClient: MCPClient; //the api variable
   let isConnected = false; // connection state
+  let availableTools: Array<{ name: string }> = []; // Store the available tools for debugging
 
   // Initialize connection to the backend API
   async function initConnection() {
@@ -29,6 +30,9 @@
 
       if (isConnected) {
         console.log('AI service connected successfully');
+        // Get available tools for debugging
+        availableTools = apiClient.getTools();
+        console.log('Available tools:', availableTools);
       } else {
         throw new Error('Failed to connect to AI service');
       }
@@ -39,7 +43,7 @@
         {
           role: 'assistant',
           content:
-            'Sorry, I failed to connect to the AI service. Please make sure the backend is running at http://localhost:3001'
+            'Sorry, I failed to connect to the AI service. Please make sure the backend is running at http://localhost:3002'
         }
       ];
     }
@@ -123,6 +127,22 @@
         <span>FinPal Assistant</span>
       </CardTitle>
       <CardDescription>Your personal financial AI assistant</CardDescription>
+
+      <!-- Debug info for MCP tools -->
+      <div class="mt-2 text-xs text-gray-400">
+        <div>Connection status: {isConnected ? 'Connected' : 'Disconnected'}</div>
+        <div>Available tools: {availableTools.length}</div>
+        {#if availableTools.length > 0}
+          <details>
+            <summary class="cursor-pointer">Show tools</summary>
+            <ul class="ml-4 list-disc">
+              {#each availableTools as tool}
+                <li>{tool.name}</li>
+              {/each}
+            </ul>
+          </details>
+        {/if}
+      </div>
     </CardHeader>
 
     <CardContent class="flex-grow overflow-hidden p-4">
