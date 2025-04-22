@@ -100,7 +100,7 @@
               {@const formattedDate = formatDate(receipt.date)}
               {#if formattedDate}
                 <div class="flex justify-between gap-2">
-                  <span class="text-muted-foreground">Date</span>
+                  <span class="text-muted-foreground">Purchase Date</span>
                   <span class="font-size-sm">{formattedDate}</span>
                 </div>
               {/if}

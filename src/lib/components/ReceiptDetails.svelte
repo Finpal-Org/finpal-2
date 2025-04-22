@@ -246,7 +246,7 @@
                       {@const formattedDate = formatDate(receipt.date)}
                       {#if formattedDate}
                         <Table.Row>
-                          <Table.Cell class="font-medium">Date</Table.Cell>
+                          <Table.Cell class="font-medium">Purchase Date</Table.Cell>
                           <Table.Cell>{formattedDate}</Table.Cell>
                         </Table.Row>
                       {/if}
@@ -355,14 +355,14 @@
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    <!-- Debug line -->
-                    {#if receipt.items && receipt.items.length > 0}
+                    <!--todo remove Debug line -->
+                    <!-- {#if receipt.items && receipt.items.length > 0}
                       <Table.Row>
                         <Table.Cell class="text-xs text-muted-foreground">
                           Debug: {JSON.stringify(receipt.items[0])}
                         </Table.Cell>
                       </Table.Row>
-                    {/if}
+                    {/if} -->
                     {#if receipt.items && receipt.items.length > 0}
                       {#each receipt.items as item, index}
                         <Table.Row>
@@ -372,7 +372,7 @@
                           <Table.Cell class="text-center">
                             {#if item?.currency === 'USD'}
                               $
-                            {:else if item?.currency === 'SAR'}
+                            {:else}
                               <div class="h m-0 flex items-center justify-center">
                                 <svg
                                   class=" w-[15px] fill-white"
@@ -391,8 +391,6 @@
                                   />
                                 </svg>
                               </div>
-                            {:else if item?.currency}
-                              {item.currency}
                             {/if}
                           </Table.Cell>
                           <Table.Cell>{item?.amount || 'unknown'}</Table.Cell>
