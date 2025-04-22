@@ -1,4 +1,4 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { ReceiptData } from '../src/types';
 // import type ReceiptField from '../src/lib/Receipt.svelte';
@@ -123,13 +123,39 @@ export async function getReceipts() {
         totalTax: rawData.totalTax || 'Unknown',
         phone: rawData.phone || 'Unknown',
         items: itemsProperties || 'Unknown',
-        createdTime: rawData.createdTime ? rawData.createdTime.toDate() : new Date()
+        createdTime: rawData.createdTime ? rawData.createdTime.toDate() : new Date(),
+        tip: rawData.tip || '0',
+        imageUrl: rawData.imageUrl || ''
       };
 
       receipts.push(safeReceipt);
     });
   } catch (err) {
     console.log(err, 'receipt fetch failed');
+  }
+}
+
+// Function to add a new receipt with image URL
+export async function addReceiptWithImage(receiptData: ReceiptData, imageUrl: string) {
+  try {
+    // Add imageUrl to the receipt data
+    const receiptWithImage = {
+      ...receiptData,
+      imageUrl,
+      createdTime: serverTimestamp()
+    };
+
+    // Add document to Firestore
+    const docRef = await addDoc(receiptCollection, receiptWithImage);
+    console.log('Receipt added with ID: ', docRef.id);
+
+    // Refresh receipts list
+    await getReceipts();
+
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding receipt: ', error);
+    throw error;
   }
 }
 

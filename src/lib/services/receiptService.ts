@@ -3,6 +3,7 @@
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebaseConfig';
 import { standardizeCategory } from '../utils/categoryMapping';
+import { uploadReceiptToStorage } from '../../../firebase/fireStorage.svelte';
 
 // Safe type assertion for environment variables
 
@@ -10,6 +11,9 @@ import { standardizeCategory } from '../utils/categoryMapping';
 const endpoint = import.meta.env.VITE_AZURE_ENDPOINT;
 const key = import.meta.env.VITE_AZURE_KEY;
 const analyzeUrl = `${endpoint}documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30`;
+
+// Default fallback image URL
+const DEFAULT_IMAGE_URL = '/src/assets/contoso-receipt.png';
 
 /**
  * Analyzes a receipt image using Azure Document Intelligence API
@@ -30,95 +34,117 @@ export async function analyzeReceipt(file: File): Promise<any> {
       throw new Error('File size exceeds 4MB limit');
     }
 
-    // Prepare the file data
-    const fileData = await file.arrayBuffer();
-
-    // Headers for the API request
-    const headers = {
-      'Ocp-Apim-Subscription-Key': key,
-      'Content-Type': file.type
-    };
-
-    statusMessage = 'Analyzing receipt using Azure Document Intelligence...';
+    statusMessage = 'Processing receipt...';
     console.log(statusMessage);
 
-    // Step 1: Send the image to Azure for analysis
-    const response = await fetch(analyzeUrl, {
-      //give url + headers + method to azure
-      method: 'POST',
-      headers: headers,
-      body: fileData
-    });
+    // Run Azure analysis and Firebase upload in parallel
+    try {
+      const [extracted, imageUrl] = await Promise.all([
+        analyzeReceiptWithAzure(file), // Azure analysis
+        uploadReceiptToStorage(file).catch((error) => {
+          console.error('Image upload failed, using default image:', error);
+          return DEFAULT_IMAGE_URL; // Use default image if upload fails
+        })
+      ]);
 
-    statusMessage = `Status code: ${response.status}`; //response success ?
-    console.log(statusMessage);
+      // If we have valid extraction results, save to Firestore with image URL
+      if (Object.keys(extracted).length > 0 && !extracted.error) {
+        // Add image URL to the extracted data
+        extracted.imageUrl = imageUrl;
 
-    // Operation Accepted from azure...
-    if (response.status === 202) {
-      // Get the operation-location URL to check the operation status
-      const operationLocation = response.headers.get('Operation-Location');
-      statusMessage = `Operation started at: ${operationLocation}`;
-      console.log(statusMessage);
-
-      // get pollheaders from operation location...
-      if (operationLocation) {
-        const pollHeaders = {
-          'Ocp-Apim-Subscription-Key': key
-        };
-
-        // Step 2: Poll until the analysis is complete
-        statusMessage = 'Polling operation...';
+        // Save to Firestore
+        await saveToFirestoreDirectly(extracted);
+        statusMessage = 'Results saved to Firestore!';
         console.log(statusMessage);
-
-        // Poll up to 10 times
-        for (let i = 0; i < 10; i++) {
-          // Wait 2 seconds between polls
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-
-          // Check operation status
-          const operationResponse = await fetch(operationLocation, {
-            headers: pollHeaders //operation headers to identify our operation
-          });
-
-          statusMessage = `Poll status code: ${operationResponse.status}`;
-          console.log(statusMessage);
-
-          // when operation is done succesfully!
-          if (operationResponse.status === 200) {
-            // Parse the result
-            const result = await operationResponse.json(); // get result from azure as json
-            const status = result.status; //status for debugging
-            statusMessage = `Operation status: ${status}`;
-            console.log(statusMessage);
-
-            if (status === 'succeeded') {
-              statusMessage = 'Analysis succeeded!';
-              console.log(statusMessage);
-              const extracted = extractResults(result); // format the json result from azure
-
-              // Save to Firestore
-              if (Object.keys(extracted).length > 0 && !extracted.error) {
-                await saveToFirestore(extracted);
-                statusMessage = 'Results saved to Firestore!';
-                console.log(statusMessage);
-              }
-
-              return extracted;
-            } else if (status === 'failed') {
-              throw new Error(`Analysis failed: ${JSON.stringify(result.errors)}`);
-            }
-          } else {
-            throw new Error(`Error response: ${await operationResponse.text()}`);
-          }
-        }
-        throw new Error('Maximum polling attempts reached without success');
       }
-    } else {
-      throw new Error(`Error response: ${await response.text()}`);
+
+      return extracted;
+    } catch (error) {
+      // If Azure analysis fails, we won't try to save anything
+      console.error('Analysis failed:', error);
+      throw error;
     }
   } catch (error) {
-    console.error('Error with Azure API call:', error);
+    console.error('Error processing receipt:', error);
     throw error;
+  }
+}
+
+/**
+ * Handles only the Azure Document Intelligence analysis part
+ * @param file The receipt file to analyze
+ * @returns Promise with the extracted data
+ */
+async function analyzeReceiptWithAzure(file: File): Promise<any> {
+  // Prepare the file data
+  const fileData = await file.arrayBuffer();
+
+  // Headers for the API request
+  const headers = {
+    'Ocp-Apim-Subscription-Key': key,
+    'Content-Type': file.type
+  };
+
+  console.log('Analyzing receipt using Azure Document Intelligence...');
+
+  // Step 1: Send the image to Azure for analysis
+  const response = await fetch(analyzeUrl, {
+    //give url + headers + method to azure
+    method: 'POST',
+    headers: headers,
+    body: fileData
+  });
+
+  console.log(`Status code: ${response.status}`);
+
+  // Operation Accepted from azure...
+  if (response.status === 202) {
+    // Get the operation-location URL to check the operation status
+    const operationLocation = response.headers.get('Operation-Location');
+    console.log(`Operation started at: ${operationLocation}`);
+
+    // get pollheaders from operation location...
+    if (operationLocation) {
+      const pollHeaders = {
+        'Ocp-Apim-Subscription-Key': key
+      };
+
+      // Step 2: Poll until the analysis is complete
+      console.log('Polling operation...');
+
+      // Poll up to 10 times
+      for (let i = 0; i < 10; i++) {
+        // Wait 2 seconds between polls
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Check operation status
+        const operationResponse = await fetch(operationLocation, {
+          headers: pollHeaders //operation headers to identify our operation
+        });
+
+        console.log(`Poll status code: ${operationResponse.status}`);
+
+        // when operation is done succesfully!
+        if (operationResponse.status === 200) {
+          // Parse the result
+          const result = await operationResponse.json(); // get result from azure as json
+          const status = result.status; //status for debugging
+          console.log(`Operation status: ${status}`);
+
+          if (status === 'succeeded') {
+            console.log('Analysis succeeded!');
+            return extractResults(result); // format the json result from azure
+          } else if (status === 'failed') {
+            throw new Error(`Analysis failed: ${JSON.stringify(result.errors)}`);
+          }
+        } else {
+          throw new Error(`Error response: ${await operationResponse.text()}`);
+        }
+      }
+      throw new Error('Maximum polling attempts reached without success');
+    }
+  } else {
+    throw new Error(`Error response: ${await response.text()}`);
   }
 }
 
@@ -165,11 +191,11 @@ export function extractResults(result: any) {
       time: 'TransactionTime',
       total: 'Total',
       subtotal: 'Subtotal',
-      country: 'CountryRegion',
+      countryRegion: 'CountryRegion', //COUNTRY
       taxDetails: 'TaxDetails',
       totalTax: 'TotalTax',
       tip: 'Tip',
-      payment: 'PaymentType',
+      payment: 'Payments', // This is correct - the field is called Payments in the API
       currency: 'currencyCode',
       transactionId: 'TransactionId',
       items: 'Items',
@@ -178,13 +204,10 @@ export function extractResults(result: any) {
 
     // Extract content & confidence fields from azure's fields
     for (const [ourField, azureField] of Object.entries(fieldMapping)) {
-      if (azureField in fields) {
+      if (azureField in fields && azureField !== 'Payments') {
+        // Skip Payments as it needs special handling
         // create our own fields in extracted, get their values from azures fields
         extracted[ourField] = fields[azureField].content || ''; //ex address = content no nesting
-        // extracted[ourField] = {
-        //   content: fields[azureField].content || '',
-        //   confidence: fields[azureField].confidence || 0
-        // };
       }
     }
 
@@ -193,6 +216,89 @@ export function extractResults(result: any) {
       // Get raw category and standardize it
       const rawCategory = fields.ReceiptType.valueString || 'Other';
       extracted.category = standardizeCategory(rawCategory);
+    }
+
+    // Special handling for TaxDetails to extract rate, description, and netAmount
+    if ('TaxDetails' in fields) {
+      const taxDetailsField = fields.TaxDetails;
+      const taxDetailsArray = [];
+
+      if ('valueArray' in taxDetailsField && Array.isArray(taxDetailsField.valueArray)) {
+        for (const taxDetail of taxDetailsField.valueArray || []) {
+          const taxDetailProps: any = {};
+
+          if ('valueObject' in taxDetail) {
+            const valueObj = taxDetail.valueObject;
+
+            if ('Rate' in valueObj) {
+              taxDetailProps.rate = valueObj.Rate.content || '';
+            }
+
+            if ('Description' in valueObj) {
+              taxDetailProps.description = valueObj.Description.content || '';
+            }
+
+            if ('NetAmount' in valueObj) {
+              taxDetailProps.netAmount = valueObj.NetAmount.content || '';
+            }
+          }
+
+          taxDetailsArray.push(taxDetailProps);
+        }
+      }
+
+      if (taxDetailsArray.length > 0) {
+        extracted.taxDetailsArray = taxDetailsArray;
+        // todo remove debug
+        console.log('Tax Details Array extracted:', taxDetailsArray);
+      }
+    }
+
+    // Special handling for Payments array
+    if ('Payments' in fields) {
+      const paymentsField = fields.Payments;
+      let paymentInfo = { method: '', amount: '' }; // Initialize with empty strings
+
+      console.log('Payments field structure:', JSON.stringify(paymentsField, null, 2));
+
+      // Handle the array structure from the 2024-11-30 API
+      if (
+        'valueArray' in paymentsField &&
+        Array.isArray(paymentsField.valueArray) &&
+        paymentsField.valueArray.length > 0
+      ) {
+        // Get first payment method
+        const payment = paymentsField.valueArray[0];
+
+        if ('valueObject' in payment) {
+          const valueObj = payment.valueObject;
+
+          if ('Method' in valueObj) {
+            paymentInfo.method = valueObj.Method.content || valueObj.Method.valueString || '';
+          }
+
+          if ('Amount' in valueObj) {
+            paymentInfo.amount =
+              valueObj.Amount.content ||
+              (valueObj.Amount.valueCurrency ? valueObj.Amount.valueCurrency.amount : '') ||
+              '';
+          }
+        }
+      } else if ('content' in paymentsField) {
+        // Alternative format where just content is available
+        paymentInfo.method = paymentsField.content || '';
+      }
+
+      // Override the payment field with properly structured object
+      extracted.payment = paymentInfo;
+
+      // Debug logging
+      console.log('Payment extraction debug:');
+      console.log('- Original payment field:', JSON.stringify(paymentsField, null, 2));
+      console.log('- Extracted payment info:', JSON.stringify(paymentInfo, null, 2));
+    } else {
+      console.log('No Payments field found in the API response');
+      console.log('Available fields:', Object.keys(fields));
     }
 
     // Handle complex items data, TODO: flatten items like in mobile
@@ -278,12 +384,33 @@ export function extractResults(result: any) {
   return extracted;
 }
 
-// Saves receipt data to Firestore
-
-export async function saveToFirestore(data: any): Promise<void> {
+// Saves receipt data directly to Firestore without additional processing
+async function saveToFirestoreDirectly(data: any): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'receipts'), data); // add receipt in a new doc inside receipt collection
+    const docRef = await addDoc(collection(db, 'receipts'), data);
     console.log('Receipt saved to Firestore with ID:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error saving to Firestore:', error);
+    throw error;
+  }
+}
+
+// The original saveToFirestore function is kept for backward compatibility
+export async function saveToFirestore(data: any, imageFile?: File): Promise<string> {
+  try {
+    // If we have an image file, upload it to Firebase Storage first
+    if (imageFile) {
+      try {
+        const imageUrl = await uploadReceiptToStorage(imageFile);
+        data.imageUrl = imageUrl; // Add the image URL to the receipt data
+      } catch (error) {
+        console.error('Image upload failed, using default image:', error);
+        data.imageUrl = DEFAULT_IMAGE_URL; // Use default image if upload fails
+      }
+    }
+
+    return saveToFirestoreDirectly(data);
   } catch (error) {
     console.error('Error saving to Firestore:', error);
     throw error;

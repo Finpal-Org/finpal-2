@@ -21,10 +21,20 @@
   // Add receipt prop
   export let receipt: ReceiptData;
 
+  console.log('Receipt data for debugging:', receipt);
+
+  // todo remove debug Check specific fields
+  console.log('CountryRegion:', receipt?.countryRegion);
+  console.log('TaxDetailsArray:', receipt?.taxDetailsArray);
+
   // State to manage custom days dialog
   let showCustomDaysDialog = false;
   let currentItemIndex = -1;
   let customDaysValue = '';
+
+  // State for image dialog
+  let showImageDialog = false;
+  let currentImageUrl = '';
 
   // Format date to DD/MM/YYYY
   function formatDate(dateStr: string | undefined): string | null {
@@ -50,6 +60,12 @@
   // Cancel custom days dialog
   function cancelCustomDays() {
     showCustomDaysDialog = false;
+  }
+
+  // Open image in dialog
+  function openImageDialog(imageUrl: string) {
+    currentImageUrl = imageUrl;
+    showImageDialog = true;
   }
 
   // Helper function to check if field has value
@@ -199,6 +215,27 @@
   </Dialog.Root>
 {/if}
 
+<!-- Image Dialog -->
+{#if showImageDialog}
+  <Dialog.Root open={showImageDialog} onOpenChange={(open) => (showImageDialog = open)}>
+    <Dialog.Content class="max-w-4xl">
+      <Dialog.Header>
+        <Dialog.Title>Receipt Image</Dialog.Title>
+      </Dialog.Header>
+      <div class="flex justify-center p-4">
+        <img
+          src={currentImageUrl}
+          alt="Receipt image full view"
+          class="max-h-[80vh] w-auto rounded-md object-contain"
+        />
+      </div>
+      <Dialog.Footer>
+        <Button on:click={() => (showImageDialog = false)}>Close</Button>
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Root>
+{/if}
+
 <main class="w-full">
   <Dialog.Root>
     <Dialog.Trigger class=" w-full ">
@@ -216,184 +253,254 @@
           <div class=" flex justify-center">
             <CardContent class="flex-1">
               <div class="mx-auto my-4 flex w-full max-w-md justify-center">
-                <img
-                  class="h-auto max-h-[40vh] w-auto rounded-md object-contain"
-                  src="/src/assets/contoso-receipt.png"
-                  alt="Receipt image"
-                />
+                <div
+                  class="cursor-pointer"
+                  on:click={() =>
+                    openImageDialog(receipt.imageUrl || '/src/assets/contoso-receipt.png')}
+                  on:keydown={(e) =>
+                    e.key === 'Enter' &&
+                    openImageDialog(receipt.imageUrl || '/src/assets/contoso-receipt.png')}
+                  tabindex="0"
+                >
+                  <img
+                    class="h-auto max-h-[40vh] w-auto rounded-md object-contain transition-opacity hover:opacity-80"
+                    src={receipt.imageUrl || '/src/assets/contoso-receipt.png'}
+                    alt="Receipt image"
+                  />
+                </div>
               </div>
 
               <div class="space-y-4">
-                <h3 class="text-lg font-semibold">Basic Details</h3>
+                <h3 class="text-2xl font-semibold text-green-500">Basic Details</h3>
                 <!-- todo add following:
  1-created date
  2-adress
  3-time
   -->
-                <Table.Root>
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.Head>Property</Table.Head>
-                      <Table.Head>Value</Table.Head>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {#if hasValue(receipt?.category)}
+                <!-- todo lets try to put 2 table.roots side by side flex-row  -->
+                <div class="flex flex-row">
+                  <Table.Root>
+                    <Table.Header>
                       <Table.Row>
-                        <Table.Cell class="font-medium">Category</Table.Cell>
-                        <Table.Cell>{receipt.category}</Table.Cell>
+                        <Table.Head class="text-lg">Field</Table.Head>
+                        <!-- <Table.Head>Value</Table.Head> -->
                       </Table.Row>
-                    {/if}
-
-                    {#if receipt?.date}
-                      {@const formattedDate = formatDate(receipt.date)}
-                      {#if formattedDate}
+                    </Table.Header>
+                    <Table.Body>
+                      {#if hasValue(receipt?.category)}
                         <Table.Row>
-                          <Table.Cell class="font-medium">Date</Table.Cell>
-                          <Table.Cell>{formattedDate}</Table.Cell>
+                          <Table.Cell class="font-medium">Category</Table.Cell>
+                          <Table.Cell>{receipt.category}</Table.Cell>
                         </Table.Row>
                       {/if}
-                    {/if}
 
-                    {#if receipt?.createdTime}
-                      <Table.Row>
-                        <Table.Cell class="font-medium">Added On</Table.Cell>
-                        <Table.Cell>{new Date(receipt.createdTime).toLocaleDateString()}</Table.Cell
-                        >
-                      </Table.Row>
-                    {/if}
+                      {#if receipt?.date}
+                        {@const formattedDate = formatDate(receipt.date)}
+                        {#if formattedDate}
+                          <Table.Row>
+                            <Table.Cell class="font-medium">Date</Table.Cell>
+                            <Table.Cell>{formattedDate}</Table.Cell>
+                          </Table.Row>
+                        {/if}
+                      {/if}
 
-                    {#if hasValue(receipt?.address)}
-                      <Table.Row>
-                        <Table.Cell class="font-medium">Address</Table.Cell>
-                        <!-- address might not need arabic -> english numbers -->
-                        <Table.Cell
-                          >{receipt.address
-                            ? convertArabicToEnglishNumbers(receipt.address)
-                            : ''}</Table.Cell
-                        >
-                      </Table.Row>
-                    {/if}
-
-                    {#if hasValue(receipt?.phone)}
-                      <Table.Row>
-                        <Table.Cell class="font-medium">Contact</Table.Cell>
-                        <Table.Cell>
-                          <a
-                            href="tel:{receipt.phone
-                              ? convertArabicToEnglishNumbers(receipt.phone)
-                              : ''}"
+                      {#if receipt?.createdTime}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Added On</Table.Cell>
+                          <Table.Cell
+                            >{new Date(receipt.createdTime).toLocaleDateString()}</Table.Cell
                           >
-                            {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
-                          </a>
-                        </Table.Cell>
-                      </Table.Row>
-                    {/if}
+                        </Table.Row>
+                      {/if}
 
-                    <Table.Row>
-                      <Table.Cell class="font-medium">Payment Method</Table.Cell>
-                      <Table.Cell>Card</Table.Cell>
-                    </Table.Row>
+                      {#if hasValue(receipt?.address)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Address</Table.Cell>
+                          <!-- address might not need arabic -> english numbers -->
+                          <Table.Cell
+                            >{receipt.address
+                              ? convertArabicToEnglishNumbers(receipt.address)
+                              : ''}</Table.Cell
+                          >
+                        </Table.Row>
+                      {/if}
 
-                    {#if hasValue(receipt?.totalTax)}
+                      {#if hasValue(receipt?.phone)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Contact</Table.Cell>
+                          <Table.Cell>
+                            <a
+                              href="tel:{receipt.phone
+                                ? convertArabicToEnglishNumbers(receipt.phone)
+                                : ''}"
+                            >
+                              {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
+                            </a>
+                          </Table.Cell>
+                        </Table.Row>
+                      {/if}
+
                       <Table.Row>
-                        <Table.Cell class="font-medium">Tax</Table.Cell>
-                        <Table.Cell class="flex items-center gap-2">
-                          {removeSign(receipt.totalTax)}
-                          <span>
-                            {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
-                              $
-                            {:else}
-                              <svg
-                                class=" w-[15px] fill-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                id="Layer_1"
-                                data-name="Layer 1"
-                                viewBox="0 0 1124.14 1256.39"
-                              >
-                                <path
-                                  class=""
-                                  d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
-                                />
-                                <path
-                                  class=""
-                                  d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
-                                />
-                              </svg>
-                            {/if}
-                          </span>
-                        </Table.Cell>
+                        <Table.Cell class="font-medium">Payment Method</Table.Cell>
+                        <Table.Cell>Card</Table.Cell>
                       </Table.Row>
-                    {/if}
 
-                    {#if hasValue(receipt?.subtotal)}
-                      <Table.Row>
-                        <Table.Cell class="font-medium">Subtotal</Table.Cell>
-                        <Table.Cell class="flex items-center gap-2">
-                          {removeSign(receipt.subtotal)}
-                          <span>
-                            {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
-                              $
-                            {:else}
-                              <svg
-                                class=" w-[15px] fill-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                id="Layer_1"
-                                data-name="Layer 1"
-                                viewBox="0 0 1124.14 1256.39"
-                              >
-                                <path
-                                  class=""
-                                  d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
-                                />
-                                <path
-                                  class=""
-                                  d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
-                                />
-                              </svg>
-                            {/if}
-                          </span>
-                        </Table.Cell>
-                      </Table.Row>
-                    {/if}
+                      {#if hasValue(receipt?.totalTax)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Tax</Table.Cell>
+                          <Table.Cell class="flex items-center gap-2">
+                            {removeSign(receipt.totalTax)}
+                            <span>
+                              {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                                $
+                              {:else}
+                                <svg
+                                  class=" w-[15px] fill-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  id="Layer_1"
+                                  data-name="Layer 1"
+                                  viewBox="0 0 1124.14 1256.39"
+                                >
+                                  <path
+                                    class=""
+                                    d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                                  />
+                                  <path
+                                    class=""
+                                    d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                                  />
+                                </svg>
+                              {/if}
+                            </span>
+                          </Table.Cell>
+                        </Table.Row>
+                      {/if}
 
-                    {#if hasValue(receipt?.total)}
+                      {#if hasValue(receipt?.subtotal)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Subtotal</Table.Cell>
+                          <Table.Cell class="flex items-center gap-2">
+                            {removeSign(receipt.subtotal)}
+                            <span>
+                              {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                                $
+                              {:else}
+                                <svg
+                                  class=" w-[15px] fill-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  id="Layer_1"
+                                  data-name="Layer 1"
+                                  viewBox="0 0 1124.14 1256.39"
+                                >
+                                  <path
+                                    class=""
+                                    d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                                  />
+                                  <path
+                                    class=""
+                                    d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                                  />
+                                </svg>
+                              {/if}
+                            </span>
+                          </Table.Cell>
+                        </Table.Row>
+                      {/if}
+
+                      {#if hasValue(receipt?.total)}
+                        <Table.Row>
+                          <Table.Cell class="text-xl font-medium">Total</Table.Cell>
+                          <Table.Cell class="flex items-center gap-2 text-xl">
+                            {removeSign(receipt.total)}
+                            <span>
+                              {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                                $
+                              {:else}
+                                <svg
+                                  class=" w-[15px] fill-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  id="Layer_1"
+                                  data-name="Layer 1"
+                                  viewBox="0 0 1124.14 1256.39"
+                                >
+                                  <path
+                                    class=""
+                                    d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                                  />
+                                  <path
+                                    class=""
+                                    d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                                  />
+                                </svg>
+                              {/if}
+                            </span>
+                          </Table.Cell>
+                        </Table.Row>
+                      {/if}
+                    </Table.Body>
+                  </Table.Root>
+                  <!-- todo 2nd table: add rest of fields from azure 4.0 .. overwhelm fields here -->
+                  <Table.Root>
+                    <Table.Header>
                       <Table.Row>
-                        <Table.Cell class="text-xl font-medium">Total</Table.Cell>
-                        <Table.Cell class="flex items-center gap-2 text-xl">
-                          {removeSign(receipt.total)}
-                          <span>
-                            {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
-                              $
-                            {:else}
-                              <svg
-                                class=" w-[15px] fill-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                id="Layer_1"
-                                data-name="Layer 1"
-                                viewBox="0 0 1124.14 1256.39"
-                              >
-                                <path
-                                  class=""
-                                  d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
-                                />
-                                <path
-                                  class=""
-                                  d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
-                                />
-                              </svg>
-                            {/if}
-                          </span>
-                        </Table.Cell>
+                        <Table.Head class="text-lg">Field</Table.Head>
+                        <!-- <Table.Head>Value</Table.Head> -->
                       </Table.Row>
-                    {/if}
-                  </Table.Body>
-                </Table.Root>
+                    </Table.Header>
+                    <Table.Body>
+                      {#if hasValue(receipt?.tip)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Tip</Table.Cell>
+                          <Table.Cell>{receipt.tip}</Table.Cell>
+                        </Table.Row>
+                      {/if}
+
+                      {#if hasValue(receipt?.countryRegion)}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Country</Table.Cell>
+                          <Table.Cell>{receipt.countryRegion}</Table.Cell>
+                        </Table.Row>
+                      {/if}
+
+                      {#if receipt?.taxDetailsArray && receipt.taxDetailsArray.length > 0}
+                        <Table.Row>
+                          <Table.Cell class="font-medium">Tax Details</Table.Cell>
+                          <Table.Cell>
+                            <div class="space-y-2">
+                              {#each receipt.taxDetailsArray as taxDetail, index}
+                                <div class="rounded bg-secondary/30 p-1 text-sm">
+                                  {#if taxDetail.description}
+                                    <div>
+                                      <span class="font-semibold">Description:</span>
+                                      {taxDetail.description}
+                                    </div>
+                                  {/if}
+                                  {#if taxDetail.rate}
+                                    <div>
+                                      <span class="font-semibold">Rate:</span>
+                                      {taxDetail.rate}
+                                    </div>
+                                  {/if}
+                                  {#if taxDetail.netAmount}
+                                    <div>
+                                      <span class="font-semibold">Net Amount:</span>
+                                      {taxDetail.netAmount}
+                                    </div>
+                                  {/if}
+                                </div>
+                              {/each}
+                            </div>
+                          </Table.Cell>
+                        </Table.Row>
+                      {/if}
+                    </Table.Body>
+                  </Table.Root>
+                </div>
 
                 <Separator />
 
                 <!--todo error unknown Items table -->
-                <h3 class="text-lg font-semibold">Item Details</h3>
+                <h3 class="text-2xl font-semibold text-green-500">Item Details</h3>
 
                 <Table.Root>
                   <Table.Header>
@@ -423,7 +530,7 @@
                       {#each receipt.items as item, index}
                         <Table.Row>
                           <Table.Cell>{item?.description || 'unknown'}</Table.Cell>
-                          <Table.Cell>{item?.quantity || 'unknown'}</Table.Cell>
+                          <Table.Cell>{item?.quantity || '-'}</Table.Cell>
                           <!-- todo receipt currency != item currency -->
                           <Table.Cell class="text-center">
                             {#if item?.currency === 'USD'}
@@ -520,6 +627,28 @@
                           {/if}
                           <Table.Cell class={getWarrantyStatusClass(item)}>
                             {getWarrantyStatus(item)}
+                          </Table.Cell>
+                          <!-- todo make this img clicable to expand in dialog if possible -->
+                          <Table.Cell>
+                            <div
+                              class="cursor-pointer"
+                              on:click={() =>
+                                openImageDialog(
+                                  receipt.imageUrl || '/src/assets/contoso-receipt.png'
+                                )}
+                              on:keydown={(e) =>
+                                e.key === 'Enter' &&
+                                openImageDialog(
+                                  receipt.imageUrl || '/src/assets/contoso-receipt.png'
+                                )}
+                              tabindex="0"
+                            >
+                              <img
+                                class="rouded-sm h-auto max-h-[100px] max-w-[100px] object-contain transition-opacity hover:opacity-80"
+                                src={receipt.imageUrl || '/src/assets/contoso-receipt.png'}
+                                alt="Receipt image"
+                              />
+                            </div>
                           </Table.Cell>
                         </Table.Row>
                       {/each}

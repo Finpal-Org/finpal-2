@@ -1,5 +1,7 @@
 import { uploadBytesResumable, ref, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebaseConfig';
+import { addReceiptWithImage } from './fireStore.svelte';
+import type { ReceiptData } from '../src/types';
 
 /**
  * Uploads a receipt image to Firebase Storage
@@ -81,6 +83,30 @@ export const uploadReceiptToStorage = (file: File): Promise<string> => {
       reject(e);
     }
   });
+};
+
+/**
+ * Handles complete process of uploading receipt image and saving receipt data
+ * @param file Receipt image file
+ * @param receiptData Receipt data object
+ * @returns Promise with receipt ID
+ */
+export const uploadReceiptWithImage = async (
+  file: File,
+  receiptData: ReceiptData
+): Promise<string> => {
+  try {
+    // 1. Upload image to Firebase Storage
+    const imageUrl = await uploadReceiptToStorage(file);
+
+    // 2. Save receipt data with image URL to Firestore
+    const receiptId = await addReceiptWithImage(receiptData, imageUrl);
+
+    return receiptId;
+  } catch (error) {
+    console.error('Failed to upload receipt with image:', error);
+    throw error;
+  }
 };
 
 // const fileName=  `${Date.now()}_${file.name}` //dynamic img name

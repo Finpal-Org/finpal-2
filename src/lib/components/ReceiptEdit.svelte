@@ -284,7 +284,7 @@
                 <div class="mx-auto my-4 flex w-full max-w-md justify-center">
                   <img
                     class="h-auto max-h-[40vh] w-auto rounded-md object-contain"
-                    src="/src/assets/contoso-receipt.png"
+                    src={receipt.imageUrl || '/src/assets/contoso-receipt.png'}
                     alt="Receipt image"
                   />
                 </div>

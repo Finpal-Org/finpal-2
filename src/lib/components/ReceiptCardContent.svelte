@@ -99,10 +99,10 @@
             <div
               class="mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-muted"
             >
-              <!-- TODO: onclick img expand & show retake option -->
+              <!-- TODO: onclick img expand (done) & show retake option (still) -->
               <img
                 class="h-full w-full object-cover"
-                src="/src/assets/contoso-receipt.png"
+                src={receipt.imageUrl || '/src/assets/contoso-receipt.png'}
                 alt=""
               />
             </div>
@@ -205,10 +205,10 @@
                   </div>
                 </div>
               {/if}
-              <!-- PAYMENT METHOD TODO: -->
+              <!-- todo PAYMENT METHOD  -->
               <div class="flex justify-between gap-2">
                 <span class="text-muted-foreground">Payment Method</span>
-                <span>{'Card'}</span>
+                <span>{receipt.payment?.method}</span>
               </div>
               <!--TODO Items : Loop if there is more than 1 item-->
               <!-- {#if receipt.items}
