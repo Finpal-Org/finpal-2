@@ -84,7 +84,7 @@
     <!-- <Separator /> -->
     <!-- (auto-fit) stacks receipt in the row infinitly if there is space (350px each receipt) -->
     <div class="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
-      <div class=" flex justify-center">
+      <div class="flex justify-center">
         <CardContent class="flex-1">
           <div
             class="mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-muted"

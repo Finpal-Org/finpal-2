@@ -17,6 +17,45 @@
   import ReceiptDetails from './components/ReceiptDetails.svelte';
   import ReceiptCardContent from './components/ReceiptCardContent.svelte';
 
+  // Tilt action for card hover effect
+  function tilt(node: HTMLElement, options = { max: 15, scale: 1.03, speed: 300 }) {
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = node.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      const tiltX = ((y - centerY) / centerY) * options.max * -1;
+      const tiltY = ((x - centerX) / centerX) * options.max;
+
+      node.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${options.scale})`;
+      node.style.transition = `transform 0ms ease-out`;
+    };
+
+    const handleMouseLeave = () => {
+      node.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
+      node.style.transition = `transform ${options.speed}ms ease-out`;
+    };
+
+    const handleMouseEnter = () => {
+      node.style.transition = `transform ${options.speed}ms ease-out`;
+    };
+
+    node.addEventListener('mousemove', handleMouseMove);
+    node.addEventListener('mouseleave', handleMouseLeave);
+    node.addEventListener('mouseenter', handleMouseEnter);
+
+    return {
+      destroy() {
+        node.removeEventListener('mousemove', handleMouseMove);
+        node.removeEventListener('mouseleave', handleMouseLeave);
+        node.removeEventListener('mouseenter', handleMouseEnter);
+      }
+    };
+  }
+
   // init loading to false
   let isLoading = $state(false);
 
@@ -63,29 +102,31 @@
             {#each receipts as receipt}
               <div class="flex justify-center">
                 <!-- TODO: Animation doesnt work after uploading.. only on mount-->
-                <Card
-                  class="receipt-card my-3 flex w-full flex-col duration-500 animate-in fade-in "
-                >
-                  <CardHeader class="flex flex-row justify-between gap-5">
-                    <div class="flex flex-col gap-2">
-                      <CardTitle
-                        >{receipt.merchantName ? receipt?.merchantName : 'Merchant'}</CardTitle
-                      >
-                      <CardDescription>{receipt?.category || 'Other'}</CardDescription>
-                    </div>
-                    <div class="flex">
-                      <ReceiptEdit {receipt} />
-                    </div>
-                  </CardHeader>
+                <div use:tilt={{ max: 5, scale: 1.02, speed: 400 }} class="w-full">
+                  <Card
+                    class="receipt-card my-3 flex w-full flex-col duration-500 animate-in fade-in"
+                  >
+                    <CardHeader class="flex flex-row justify-between gap-5">
+                      <div class="flex flex-col gap-2">
+                        <CardTitle
+                          >{receipt.merchantName ? receipt?.merchantName : 'Merchant'}</CardTitle
+                        >
+                        <CardDescription>{receipt?.category || 'Other'}</CardDescription>
+                      </div>
+                      <div class="flex">
+                        <ReceiptEdit {receipt} />
+                      </div>
+                    </CardHeader>
 
-                  <!-- the Card Content -->
-                  <ReceiptCardContent {receipt} />
-                  <!-- todo i need the footer to be at very bottom of card  -->
-                  <CardFooter class="">
-                    <!-- TODO: Onclick Expand or popup Detailed view -->
-                    <ReceiptDetails {receipt} />
-                  </CardFooter>
-                </Card>
+                    <!-- the Card Content -->
+                    <ReceiptCardContent {receipt} />
+                    <!-- todo i need the footer to be at very bottom of card  -->
+                    <CardFooter class="">
+                      <!-- TODO: Onclick Expand or popup Detailed view -->
+                      <ReceiptDetails {receipt} />
+                    </CardFooter>
+                  </Card>
+                </div>
               </div>
             {/each}
           {/key}
@@ -96,4 +137,16 @@
 </main>
 
 <style>
+  .receipt-card {
+    transition:
+      transform 400ms ease-out,
+      box-shadow 400ms ease-out;
+    will-change: transform;
+    transform-style: preserve-3d;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .receipt-card:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  }
 </style>
