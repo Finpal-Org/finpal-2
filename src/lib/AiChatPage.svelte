@@ -18,6 +18,7 @@
   let apiClient: MCPClient; //the api variable
   let isConnected = false; // connection state
   let availableTools: Array<{ name: string }> = []; // Store the available tools for debugging
+  let showDebugInfo = false; // Toggle for debug information
 
   // Initialize connection to the backend API
   async function initConnection() {
@@ -60,6 +61,7 @@
   // State variables for managing user input and loading state
   let userInput = '';
   let isLoading = false;
+  let rawResponse = ''; // Store raw response for debugging
 
   // Send a message to the AI service
   async function handleSendMessage() {
@@ -92,6 +94,9 @@
       // Send to backend and get response
       const response = await apiClient.processQuery(messageToSend);
 
+      // Store raw response for debug purposes
+      rawResponse = JSON.stringify(response, null, 2);
+
       // Add AI response to the chat
       messages = [...messages, { role: 'assistant', content: response }];
     } catch (error) {
@@ -100,6 +105,7 @@
         ...messages,
         { role: 'assistant', content: 'Sorry, I encountered an error processing your request.' }
       ];
+      rawResponse = JSON.stringify(error, null, 2);
     } finally {
       isLoading = false;
     }
@@ -111,6 +117,11 @@
       event.preventDefault();
       handleSendMessage();
     }
+  }
+
+  // Toggle debug information
+  function toggleDebugInfo() {
+    showDebugInfo = !showDebugInfo;
   }
 
   // Connect to the backend when the component loads
@@ -128,21 +139,52 @@
       </CardTitle>
       <CardDescription>Your personal financial AI assistant</CardDescription>
 
-      <!-- Debug info for MCP tools -->
-      <div class="mt-2 text-xs text-gray-400">
-        <div>Connection status: {isConnected ? 'Connected' : 'Disconnected'}</div>
-        <div>Available tools: {availableTools.length}</div>
-        {#if availableTools.length > 0}
-          <details>
-            <summary class="cursor-pointer">Show tools</summary>
-            <ul class="ml-4 list-disc">
-              {#each availableTools as tool}
-                <li>{tool.name}</li>
-              {/each}
-            </ul>
-          </details>
-        {/if}
+      <!-- Debug toggle button -->
+      <div class="mt-2 flex items-center justify-end">
+        <button
+          on:click={toggleDebugInfo}
+          class="text-xs text-gray-400 underline hover:text-gray-600"
+        >
+          {showDebugInfo ? 'Hide Debug Info' : 'Show Debug Info'}
+        </button>
       </div>
+
+      <!-- Debug info for MCP tools -->
+      {#if showDebugInfo}
+        <div class="mt-2 rounded-md bg-gray-100 p-2 text-xs text-gray-600">
+          <div>Connection status: {isConnected ? 'Connected' : 'Disconnected'}</div>
+          <div>Available tools: {availableTools.length}</div>
+          {#if availableTools.length > 0}
+            <details>
+              <summary class="cursor-pointer">Show tools</summary>
+              <ul class="ml-4 list-disc">
+                {#each availableTools as tool}
+                  <li>{tool.name}</li>
+                {/each}
+              </ul>
+            </details>
+          {/if}
+
+          {#if rawResponse}
+            <details>
+              <summary class="mt-2 cursor-pointer">Last Raw Response</summary>
+              <pre
+                class="mt-1 max-h-40 overflow-auto rounded bg-gray-200 p-2 text-xs">{rawResponse}</pre>
+            </details>
+          {/if}
+
+          <!-- Message history debug -->
+          <details>
+            <summary class="mt-2 cursor-pointer">Message History</summary>
+            <pre
+              class="mt-1 max-h-40 overflow-auto rounded bg-gray-200 p-2 text-xs">{JSON.stringify(
+                messages,
+                null,
+                2
+              )}</pre>
+          </details>
+        </div>
+      {/if}
     </CardHeader>
 
     <CardContent class="flex-grow overflow-hidden p-4">
@@ -170,7 +212,7 @@
                       : 'bg-muted text-foreground'
                   }`}
                 >
-                  {message.content}
+                  {@html message.content}
                 </div>
               </div>
             </div>

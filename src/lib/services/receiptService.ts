@@ -2,6 +2,7 @@
 // import { initializeApp } from 'firebase/app';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebaseConfig';
+import { standardizeCategory } from '../utils/categoryMapping';
 
 // Safe type assertion for environment variables
 
@@ -189,11 +190,9 @@ export function extractResults(result: any) {
 
     // Handle receipt type / category
     if ('ReceiptType' in fields) {
-      extracted.category = fields.ReceiptType.valueString || 'Other'; // address = content no nesting
-      // extracted.category = {
-      //   content: fields.ReceiptType.valueString || 'Other', //valueString here is different for receipt type
-      //   confidence: fields.ReceiptType.confidence || 0
-      // };
+      // Get raw category and standardize it
+      const rawCategory = fields.ReceiptType.valueString || 'Other';
+      extracted.category = standardizeCategory(rawCategory);
     }
 
     // Handle complex items data, TODO: flatten items like in mobile

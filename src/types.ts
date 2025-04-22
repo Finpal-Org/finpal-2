@@ -21,8 +21,15 @@ export interface ReceiptData {
     amount: string;
     currency: string;
     quantity: string;
+    warranty?: {
+      hasWarranty: boolean;
+      periodMonths: number | 'other';
+      expiryDate?: string;
+      isCustomPeriodInDays?: boolean;
+    };
   }[];
   address?: string;
+  createdTime?: Date;
   // todo is there currency ?
   // currency: string;
 }

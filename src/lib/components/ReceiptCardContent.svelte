@@ -8,6 +8,69 @@
 
   // Add receipt prop
   export let receipt: ReceiptData;
+
+  // Format date to MM/DD/YYYY
+  function formatDate(dateStr: string | undefined): string | null {
+    if (!dateStr) return null;
+
+    try {
+      // Handle different date formats (yyyy-mm-dd, dd.mm.yyyy, dd-mm-yyyy)
+      let date: Date;
+
+      // Check if date has dots (dd.mm.yyyy)
+      if (dateStr.includes('.')) {
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+          // Assume dd.mm.yyyy format
+          date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } else {
+          date = new Date(dateStr);
+        }
+      }
+      // Check if date has dashes but in dd-mm-yyyy format
+      else if (dateStr.includes('-') && dateStr.length <= 10 && !dateStr.match(/^\d{4}-/)) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          // Assume dd-mm-yyyy format
+          date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } else {
+          date = new Date(dateStr);
+        }
+      }
+      // Standard format or other formats
+      else {
+        date = new Date(dateStr);
+      }
+
+      if (isNaN(date.getTime())) return null;
+
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear();
+
+      return `${month}/${day}/${year}`;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Helper function to check if field has value
+  function hasValue(field: any): boolean {
+    return (
+      field !== undefined &&
+      field !== null &&
+      field !== '' &&
+      field !== 'unknown' &&
+      field !== 'Unknown'
+    );
+  }
+
+  // Helper function to remove dollar sign if present
+  function removeSign(value: string | undefined): string {
+    if (!value) return '';
+    // Remove $ and any non-numeric characters except decimal point
+    return String(value).replace(/[^\d.]/g, '');
+  }
 </script>
 
 <main>
@@ -25,32 +88,66 @@
           </div>
 
           <div class="space-y-2">
-            <div class="flex justify-between gap-2">
-              <span class="text-muted-foreground">Category</span>
-              <span>{receipt?.category || 'N/A'}</span>
-            </div>
+            {#if hasValue(receipt?.category)}
+              <div class="flex justify-between gap-2">
+                <span class="text-muted-foreground">Category</span>
+                <span>{receipt.category}</span>
+              </div>
+            {/if}
 
-            <!-- todo move address inside details  -->
-            <div class="flex justify-between gap-2">
-              <span class="text-muted-foreground">Date</span>
-              <span class="font-size-sm">{receipt?.date || 'N/A'}</span>
-            </div>
+            <!-- Format date and only show if available -->
+            {#if receipt?.date}
+              {@const formattedDate = formatDate(receipt.date)}
+              {#if formattedDate}
+                <div class="flex justify-between gap-2">
+                  <span class="text-muted-foreground">Date</span>
+                  <span class="font-size-sm">{formattedDate}</span>
+                </div>
+              {/if}
+            {/if}
 
-            <div class="flex justify-between gap-2">
-              <span class="text-muted-foreground">Contact</span>
-              <!-- TODO: needs proper phone formating for quick access (copy paste) -->
-              <span><a href="tel:{receipt?.phone || 'N/A'}"> {receipt?.phone || 'N/A'}</a></span>
-            </div>
+            {#if hasValue(receipt?.phone)}
+              <div class="flex justify-between gap-2">
+                <span class="text-muted-foreground">Contact</span>
+                <!-- TODO: needs proper phone formating for quick access (copy paste) -->
+                <span><a href="tel:{receipt.phone}"> {receipt.phone}</a></span>
+              </div>
+            {/if}
 
-            <div class="flex justify-between gap-2">
-              <!-- PAYMENT METHOD TODO: -->
-              <span class="text-muted-foreground">Vat Total</span>
-              <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
-              <span class="flex gap-1"
-                >{receipt?.totalTax || 'N/A'}
-                <!-- change color based on theme white/black | also confitional if saudi receipt, or includes"$" then remove -->
-              </span>
-            </div>
+            {#if hasValue(receipt?.totalTax)}
+              <div class="flex justify-between gap-2">
+                <span class="text-muted-foreground">Vat Total</span>
+                <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
+                <div class="flex items-center justify-center gap-1">
+                  <span class="flex gap-1"
+                    >{removeSign(receipt.totalTax)}
+                    <!-- change color based on theme white/black | also confitional if saudi receipt, or includes"$" then remove -->
+                  </span>
+                  <span>
+                    {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                      $
+                    {:else}
+                      <svg
+                        class=" w-[15px] fill-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        id="Layer_1"
+                        data-name="Layer 1"
+                        viewBox="0 0 1124.14 1256.39"
+                      >
+                        <path
+                          class=""
+                          d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                        />
+                        <path
+                          class=""
+                          d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                        />
+                      </svg>
+                    {/if}
+                  </span>
+                </div>
+              </div>
+            {/if}
 
             <!-- PAYMENT METHOD TODO: -->
             <div class="flex justify-between gap-2">
@@ -64,10 +161,10 @@
                 <div class="flex justify-between gap-2">
                   <span class="text-muted-foreground">Item</span>
                   <div class="flex flex-col gap-1">
-                    <span>{item?.description || 'unknown'}</span>
-                    <span>{item?.quantity || 'unknown'}</span>
-                    <span>{item?.currency || 'unknown'}</span>
-                    <span>{item?.amount || 'unknown'}</span>
+                    <span>{item?.description || ''}</span>
+                    <span>{item?.quantity || ''}</span>
+                    <span>{item?.currency || ''}</span>
+                    <span>{item?.amount || ''}</span>
                   </div>
                 </div>
               {/each}
@@ -81,10 +178,37 @@
 
             <Separator />
 
-            <div class="flex justify-between font-medium">
-              <span>Total:</span>
-              <span>{receipt?.total || 'N/A'}</span>
-            </div>
+            {#if hasValue(receipt?.total)}
+              <div class="flex justify-between font-medium">
+                <span>Total:</span>
+                <div class="flex items-center justify-center gap-1">
+                  <span>{removeSign(receipt.total)} </span>
+
+                  <span>
+                    {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                      $
+                    {:else}
+                      <svg
+                        class=" w-[15px] fill-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        id="Layer_1"
+                        data-name="Layer 1"
+                        viewBox="0 0 1124.14 1256.39"
+                      >
+                        <path
+                          class=""
+                          d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                        />
+                        <path
+                          class=""
+                          d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                        />
+                      </svg>
+                    {/if}
+                  </span>
+                </div>
+              </div>
+            {/if}
           </div>
         </CardContent>
       </div>

@@ -23,10 +23,19 @@ export async function getReceipts() {
       const rawData = doc.data();
 
       interface item {
-        Description: string;
-        Amount: string;
-        Currency: string;
-        Quantity: string;
+        Description?: string;
+        Amount?: string;
+        Currency?: string;
+        Quantity?: string;
+        description?: string;
+        amount?: string;
+        currency?: string;
+        quantity?: string;
+        warranty?: {
+          hasWarranty: boolean;
+          periodMonths: number;
+          expiryDate?: string;
+        };
       }
 
       // item empty bu default
@@ -37,18 +46,20 @@ export async function getReceipts() {
         //if there are items nested
         if (rawData && rawData.items && rawData.items.content) {
           itemsProperties = rawData.items.content.map((item: item) => ({
-            description: item.Description || '',
-            amount: item.Amount || '',
-            currency: item.Currency || 'SAR',
-            quantity: item.Quantity || ''
+            description: item.description || item.Description || '',
+            amount: item.amount || item.Amount || '',
+            currency: item.currency || item.Currency || 'SAR',
+            quantity: item.quantity || item.Quantity || '',
+            warranty: item.warranty || undefined
           }));
           // else items flat
         } else {
           itemsProperties = rawData.items.map((item: item) => ({
-            description: item.Description || '',
-            amount: item.Amount || '',
-            currency: item.Currency || 'SAR',
-            quantity: item.Quantity || ''
+            description: item.description || item.Description || '',
+            amount: item.amount || item.Amount || '',
+            currency: item.currency || item.Currency || 'SAR',
+            quantity: item.quantity || item.Quantity || '',
+            warranty: item.warranty || undefined
           }));
         }
       }
@@ -111,7 +122,8 @@ export async function getReceipts() {
         total: rawData.total || 'Unknown',
         totalTax: rawData.totalTax || 'Unknown',
         phone: rawData.phone || 'Unknown',
-        items: itemsProperties || 'Unknown'
+        items: itemsProperties || 'Unknown',
+        createdTime: rawData.createdTime ? rawData.createdTime.toDate() : new Date()
       };
 
       receipts.push(safeReceipt);

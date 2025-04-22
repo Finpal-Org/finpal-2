@@ -64,7 +64,7 @@
               <div class="flex justify-center">
                 <!-- TODO: Animation doesnt work after uploading.. only on mount-->
                 <Card
-                  class="receipt-card my-3 flex w-full flex-col duration-500 animate-in fade-in"
+                  class="receipt-card my-3 flex w-full flex-col duration-500 animate-in fade-in "
                 >
                   <CardHeader class="flex flex-row justify-between gap-5">
                     <div class="flex flex-col gap-2">
@@ -80,7 +80,7 @@
 
                   <!-- the Card Content -->
                   <ReceiptCardContent {receipt} />
-
+                  <!-- todo i need the footer to be at very bottom of card  -->
                   <CardFooter class="">
                     <!-- TODO: Onclick Expand or popup Detailed view -->
                     <ReceiptDetails {receipt} />
