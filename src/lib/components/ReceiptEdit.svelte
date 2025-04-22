@@ -64,6 +64,7 @@
   // Cancel custom days dialog
   function cancelCustomDays() {
     showCustomDaysDialog = false;
+    customDaysDialogOpen = false;
   }
 
   // Handle form submission
@@ -187,6 +188,7 @@
           </div>
         </div>
         <Dialog.Footer>
+          <!-- todo cancel doesnt exit edit dialog -->
           <Button variant="outline" on:click={cancelCustomDays}>Cancel</Button>
           <Button on:click={saveCustomDays}>Save</Button>
         </Dialog.Footer>
@@ -195,7 +197,10 @@
   {/if}
 
   <Dialog.Root>
-    <Dialog.Trigger><Button variant="secondary" class="text-green-500">Edit</Button></Dialog.Trigger
+    <!--todo  make edit button bigger & easier to click -->
+    <Dialog.Trigger
+      ><Button size="lg" variant="secondary" class="w-full text-green-500">Edit</Button
+      ></Dialog.Trigger
     >
     <Dialog.Content class="max-w-6xl">
       <Dialog.Header>

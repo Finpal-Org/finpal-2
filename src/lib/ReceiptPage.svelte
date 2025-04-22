@@ -87,7 +87,7 @@
     <div class="grid gap-6">
       <Separator />
       <!-- (auto-fit) stacks receipt in the row infinitly if there is space (350px each receipt) -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
+      <div class="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
         <!-- Loading msgs -->
         {#if isLoading}
           <h1>Loading...</h1>
@@ -102,9 +102,9 @@
             {#each receipts as receipt}
               <div class="flex justify-center">
                 <!-- TODO: Animation doesnt work after uploading.. only on mount-->
-                <div use:tilt={{ max: 5, scale: 1.02, speed: 400 }} class="w-full">
+                <div use:tilt={{ max: 2, scale: 1.02, speed: 400 }} class="h-full w-full">
                   <Card
-                    class="receipt-card my-3 flex w-full flex-col duration-500 animate-in fade-in"
+                    class="receipt-card my-3 grid h-full w-full grid-rows-[auto_1fr_auto] duration-500 animate-in fade-in"
                   >
                     <CardHeader class="flex flex-row justify-between gap-5">
                       <div class="flex flex-col gap-2">
@@ -121,7 +121,7 @@
                     <!-- the Card Content -->
                     <ReceiptCardContent {receipt} />
                     <!-- todo i need the footer to be at very bottom of card  -->
-                    <CardFooter class="">
+                    <CardFooter>
                       <!-- TODO: Onclick Expand or popup Detailed view -->
                       <ReceiptDetails {receipt} />
                     </CardFooter>

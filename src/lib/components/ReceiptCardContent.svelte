@@ -6,9 +6,18 @@
 
   // Import ReceiptData type
   import type { ReceiptData } from '../../types';
+  import type { HTMLAttributes } from 'svelte/elements';
+  import { cn } from '../utils';
+
+  // Define props
+  type $$Props = HTMLAttributes<HTMLDivElement> & {
+    receipt: ReceiptData;
+  };
 
   // Add receipt prop
   export let receipt: ReceiptData;
+  let className: $$Props['class'] = undefined;
+  export { className as class };
 
   // Format date to MM/DD/YYYY
   function formatDate(dateStr: string | undefined): string | null {
@@ -79,127 +88,132 @@
   }
 </script>
 
-<main>
-  <div class="grid gap-6">
-    <!-- <Separator /> -->
+<main class={className}>
+  <div class="grid h-full gap-6">
     <!-- (auto-fit) stacks receipt in the row infinitly if there is space (350px each receipt) -->
-    <div class="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
-      <div class="flex justify-center">
-        <CardContent class="flex-1">
-          <div
-            class="mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-muted"
-          >
-            <!-- TODO: onclick img expand & show retake option -->
-            <img class="h-full w-full object-cover" src="/src/assets/contoso-receipt.png" alt="" />
-          </div>
-
-          <div class="space-y-2">
-            {#if hasValue(receipt?.category)}
-              <div class="flex justify-between gap-2">
-                <span class="text-muted-foreground">Category</span>
-                <span>{receipt.category}</span>
-              </div>
-            {/if}
-
-            <!-- Format date and only show if available -->
-            {#if receipt?.date}
-              {@const formattedDate = formatDate(receipt.date)}
-              {#if formattedDate}
+    <div class="grid h-full grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
+      <div class="flex h-full justify-center">
+        <CardContent class="flex h-full w-full flex-col">
+          <!-- Top section: Image and details -->
+          <div class="flex-grow">
+            <div
+              class="mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-muted"
+            >
+              <!-- TODO: onclick img expand & show retake option -->
+              <img
+                class="h-full w-full object-cover"
+                src="/src/assets/contoso-receipt.png"
+                alt=""
+              />
+            </div>
+            <div class="space-y-2">
+              {#if hasValue(receipt?.category)}
                 <div class="flex justify-between gap-2">
-                  <span class="text-muted-foreground">Purchase Date</span>
-                  <span class="font-size-sm">{formattedDate}</span>
+                  <span class="text-muted-foreground">Category</span>
+                  <span>{receipt.category}</span>
                 </div>
               {/if}
-            {/if}
-
-            {#if hasValue(receipt?.phone)}
-              <div class="flex justify-between gap-2">
-                <span class="text-muted-foreground">Contact</span>
-                <!-- TODO: needs proper phone formating for quick access (copy paste) -->
-                <span>
-                  <a href="tel:{receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}">
-                    {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
-                  </a>
-                </span>
-              </div>
-            {/if}
-
-            {#if hasValue(receipt?.totalTax)}
-              <div class="flex justify-between gap-2">
-                <span class="text-muted-foreground">Vat Total</span>
-                <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
-                <div class="flex items-center justify-center gap-1">
-                  <span class="flex gap-1"
-                    >{removeSign(receipt.totalTax)}
-                    <!-- change color based on theme white/black | also confitional if saudi receipt, or includes"$" then remove -->
-                  </span>
+              <!-- Format date and only show if available -->
+              {#if receipt?.date}
+                {@const formattedDate = formatDate(receipt.date)}
+                {#if formattedDate}
+                  <div class="flex justify-between gap-2">
+                    <span class="text-muted-foreground">Purchase Date</span>
+                    <span class="font-size-sm">{formattedDate}</span>
+                  </div>
+                {/if}
+              {/if}
+              {#if hasValue(receipt?.phone)}
+                <div class="flex justify-between gap-2">
+                  <span class="text-muted-foreground">Contact</span>
+                  <!-- TODO: needs proper phone formating for quick access (copy paste) -->
                   <span>
-                    {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
-                      $
-                    {:else}
-                      <svg
-                        class=" w-[15px] fill-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        id="Layer_1"
-                        data-name="Layer 1"
-                        viewBox="0 0 1124.14 1256.39"
-                      >
-                        <path
-                          class=""
-                          d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
-                        />
-                        <path
-                          class=""
-                          d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
-                        />
-                      </svg>
-                    {/if}
+                    <a
+                      href="tel:{receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}"
+                    >
+                      {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
+                    </a>
                   </span>
                 </div>
-              </div>
-            {/if}
-
-            <!-- PAYMENT METHOD TODO: -->
-            <div class="flex justify-between gap-2">
-              <span class="text-muted-foreground">Payment Method</span>
-              <span>{'Card'}</span>
-            </div>
-
-            <!--TODO Items : Loop if there is more than 1 item-->
-            <!-- {#if receipt.items}
-              {#each receipt.items as item}
+              {/if}
+              {#if hasValue(receipt?.totalTax)}
                 <div class="flex justify-between gap-2">
-                  <span class="text-muted-foreground">Item</span>
-                  <div class="flex flex-col gap-1">
-                    <span>{item?.description || ''}</span>
-                    <span>{item?.quantity || ''}</span>
-                    <span>{item?.currency || ''}</span>
-                    <span>{item?.amount || ''}</span>
+                  <span class="text-muted-foreground">Vat Total</span>
+                  <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
+                  <div class="flex items-center justify-center gap-1">
+                    <span class="flex gap-1"
+                      >{removeSign(receipt.totalTax)}
+                      <!-- change color based on theme white/black | also confitional if saudi receipt, or includes"$" then remove -->
+                    </span>
+                    <span>
+                      {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                        $
+                      {:else}
+                        <svg
+                          class=" w-[15px] fill-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          id="Layer_1"
+                          data-name="Layer 1"
+                          viewBox="0 0 1124.14 1256.39"
+                        >
+                          <path
+                            class=""
+                            d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                          />
+                          <path
+                            class=""
+                            d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                          />
+                        </svg>
+                      {/if}
+                    </span>
                   </div>
                 </div>
-              {/each}
-            {/if} -->
-            <!-- todo? -->
-            <div class="flex justify-center">
-              <span class="flex items-center justify-center text-muted-foreground">
-                <!-- <svg xmlns="http://www.w3.org/2000/svg" height="14" width="12.25" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>   -->
-              </span>
+              {/if}
+              <!-- PAYMENT METHOD TODO: -->
+              <div class="flex justify-between gap-2">
+                <span class="text-muted-foreground">Payment Method</span>
+                <span>{'Card'}</span>
+              </div>
+              <!--TODO Items : Loop if there is more than 1 item-->
+              <!-- {#if receipt.items}
+                {#each receipt.items as item}
+                  <div class="flex justify-between gap-2">
+                    <span class="text-muted-foreground">Item</span>
+                    <div class="flex flex-col gap-1">
+                      <span>{item?.description || ''}</span>
+                      <span>{item?.quantity || ''}</span>
+                      <span>{item?.currency || ''}</span>
+                      <span>{item?.amount || ''}</span>
+                    </div>
+                  </div>
+                {/each}
+              {/if} -->
+              <!-- todo? -->
+              <div class="flex justify-center">
+                <span class="flex items-center justify-center text-muted-foreground">
+                  <!-- <svg xmlns="http://www.w3.org/2000/svg" height="14" width="12.25" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>   -->
+                </span>
+              </div>
             </div>
+          </div>
 
+          <!-- Bottom section: Separator and total -->
+          <div class="mt-8">
             <Separator />
 
             {#if hasValue(receipt?.total)}
-              <div class="flex justify-between font-medium">
-                <span>Total:</span>
+              <div class="mt-2 flex justify-between font-medium">
+                <span class="text-xl font-semibold">Total:</span>
                 <div class="flex items-center justify-center gap-1">
-                  <span>{removeSign(receipt.total)} </span>
+                  <span class="text-xl font-medium">{removeSign(receipt.total)} </span>
 
                   <span>
                     {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
                       $
                     {:else}
                       <svg
-                        class=" w-[15px] fill-white"
+                        class="w-[18px] fill-white"
                         xmlns="http://www.w3.org/2000/svg"
                         id="Layer_1"
                         data-name="Layer 1"
