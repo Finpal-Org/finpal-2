@@ -290,9 +290,14 @@
                       </Table.Row>
                     {/if}
 
+                    <Table.Row>
+                      <Table.Cell class="font-medium">Payment Method</Table.Cell>
+                      <Table.Cell>Card</Table.Cell>
+                    </Table.Row>
+
                     {#if hasValue(receipt?.totalTax)}
                       <Table.Row>
-                        <Table.Cell class="font-medium">VAT Total</Table.Cell>
+                        <Table.Cell class="font-medium">Tax</Table.Cell>
                         <Table.Cell class="flex items-center gap-2">
                           {removeSign(receipt.totalTax)}
                           <span>
@@ -321,10 +326,36 @@
                       </Table.Row>
                     {/if}
 
-                    <Table.Row>
-                      <Table.Cell class="font-medium">Payment Method</Table.Cell>
-                      <Table.Cell>Card</Table.Cell>
-                    </Table.Row>
+                    {#if hasValue(receipt?.subtotal)}
+                      <Table.Row>
+                        <Table.Cell class="font-medium">Subtotal</Table.Cell>
+                        <Table.Cell class="flex items-center gap-2">
+                          {removeSign(receipt.subtotal)}
+                          <span>
+                            {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                              $
+                            {:else}
+                              <svg
+                                class=" w-[15px] fill-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                id="Layer_1"
+                                data-name="Layer 1"
+                                viewBox="0 0 1124.14 1256.39"
+                              >
+                                <path
+                                  class=""
+                                  d="M699.62,1113.02h0c-20.06,44.48-33.32,92.75-38.4,143.37l424.51-90.24c20.06-44.47,33.31-92.75,38.4-143.37l-424.51,90.24Z"
+                                />
+                                <path
+                                  class=""
+                                  d="M1085.73,895.8c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.33v-135.2l292.27-62.11c20.06-44.47,33.32-92.75,38.4-143.37l-330.68,70.27V66.13c-50.67,28.45-95.67,66.32-132.25,110.99v403.35l-132.25,28.11V0c-50.67,28.44-95.67,66.32-132.25,110.99v525.69l-295.91,62.88c-20.06,44.47-33.33,92.75-38.42,143.37l334.33-71.05v170.26l-358.3,76.14c-20.06,44.47-33.32,92.75-38.4,143.37l375.04-79.7c30.53-6.35,56.77-24.4,73.83-49.24l68.78-101.97v-.02c7.14-10.55,11.3-23.27,11.3-36.97v-149.98l132.25-28.11v270.4l424.53-90.28Z"
+                                />
+                              </svg>
+                            {/if}
+                          </span>
+                        </Table.Cell>
+                      </Table.Row>
+                    {/if}
 
                     {#if hasValue(receipt?.total)}
                       <Table.Row>
@@ -372,7 +403,9 @@
                       <Table.Head>Currency</Table.Head>
                       <Table.Head>Amount</Table.Head>
                       <Table.Head>Warranty</Table.Head>
-                      <Table.Head>Period</Table.Head>
+                      {#if receipt.items?.some((item) => item?.warranty?.hasWarranty)}
+                        <Table.Head>Period</Table.Head>
+                      {/if}
                       <Table.Head>Status</Table.Head>
                       <Table.Head>Image</Table.Head>
                     </Table.Row>
@@ -433,58 +466,58 @@
                               <Select.Trigger>
                                 <Select.Value placeholder="Has Warranty" />
                               </Select.Trigger>
-                              <Select.Content>
+                              <Select.Content style="--height: auto; --max-height: none;">
                                 <Select.Item value="yes">Yes</Select.Item>
                                 <Select.Item value="no">No</Select.Item>
                               </Select.Content>
                             </Select.Root>
                           </Table.Cell>
-                          <Table.Cell>
-                            <Select.Root
-                              selected={item?.warranty?.periodMonths
-                                ? {
-                                    value:
-                                      typeof item.warranty.periodMonths === 'string'
-                                        ? item.warranty.periodMonths
-                                        : item.warranty.periodMonths.toString(),
-                                    label:
-                                      typeof item.warranty.periodMonths === 'string' &&
-                                      item.warranty.periodMonths === 'other'
-                                        ? 'Custom'
-                                        : item.warranty?.isCustomPeriodInDays
-                                          ? `${item.warranty.periodMonths} days`
-                                          : `${item.warranty.periodMonths} months`
-                                  }
-                                : { value: '12', label: '12 M' }}
-                              onSelectedChange={(selected) => {
-                                if (selected) {
-                                  const hasWarranty = item?.warranty?.hasWarranty || false;
+                          {#if item?.warranty?.hasWarranty}
+                            <Table.Cell>
+                              <Select.Root
+                                selected={item?.warranty?.periodMonths
+                                  ? {
+                                      value:
+                                        typeof item.warranty.periodMonths === 'string'
+                                          ? item.warranty.periodMonths
+                                          : item.warranty.periodMonths.toString(),
+                                      label:
+                                        typeof item.warranty.periodMonths === 'string' &&
+                                        item.warranty.periodMonths === 'other'
+                                          ? 'Custom'
+                                          : item.warranty?.isCustomPeriodInDays
+                                            ? `${item.warranty.periodMonths} days`
+                                            : `${item.warranty.periodMonths} months`
+                                    }
+                                  : { value: '12', label: '12 M' }}
+                                onSelectedChange={(selected) => {
+                                  if (selected) {
+                                    const hasWarranty = item?.warranty?.hasWarranty || false;
 
-                                  if (selected.value === 'other') {
-                                    // Open custom days dialog instead of setting directly
-                                    openCustomDaysDialog(index);
-                                  } else {
-                                    const period = parseInt(selected.value);
-                                    setItemWarranty(index, hasWarranty, period);
+                                    if (selected.value === 'other') {
+                                      // Open custom days dialog instead of setting directly
+                                      openCustomDaysDialog(index);
+                                    } else {
+                                      const period = parseInt(selected.value);
+                                      setItemWarranty(index, hasWarranty, period);
+                                    }
                                   }
-                                }
-                              }}
-                            >
-                              <Select.Trigger>
-                                <Select.Value placeholder="Select Period" />
-                              </Select.Trigger>
-                              <Select.Content>
-                                <Select.Item value="12">12 M</Select.Item>
-                                <Select.Item value="24">24 M</Select.Item>
-                                <Select.Item value="36">36 M</Select.Item>
-                                <Select.Item value="other">Custom (Days)</Select.Item>
-                              </Select.Content>
-                            </Select.Root>
-
-                            {#if item?.warranty?.hasWarranty && item?.warranty?.periodMonths === 'other'}
-                              <!-- The inline input is removed, now using dialog instead -->
-                            {/if}
-                          </Table.Cell>
+                                }}
+                              >
+                                <Select.Trigger>
+                                  <Select.Value placeholder="Select Period" />
+                                </Select.Trigger>
+                                <Select.Content style="--height: auto; --max-height: none;">
+                                  <Select.Item value="12">12 M</Select.Item>
+                                  <Select.Item value="24">24 M</Select.Item>
+                                  <Select.Item value="36">36 M</Select.Item>
+                                  <Select.Item value="other">Custom (Days)</Select.Item>
+                                </Select.Content>
+                              </Select.Root>
+                            </Table.Cell>
+                          {:else if receipt.items?.some((i) => i?.warranty?.hasWarranty)}
+                            <Table.Cell></Table.Cell>
+                          {/if}
                           <Table.Cell class={getWarrantyStatusClass(item)}>
                             {getWarrantyStatus(item)}
                           </Table.Cell>
