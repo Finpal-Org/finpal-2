@@ -1,8 +1,9 @@
 #!/bin/bash
 echo "Starting FinPal Backend..."
-echo "Server will be available at: http://localhost:3001"
+echo "Server will be available at: http://localhost:3002"
 
 cd backend
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 python3 src/index.py
 
 if [ $? -ne 0 ]; then

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from src.services.pydantic_mcp_agent import get_pydantic_ai_agent
+# from .services.pydantic_mcp_agent import get_pydantic_ai_agent
 # Create a new FastAPI app (this is our web server)
 app = FastAPI()
 
@@ -116,6 +117,20 @@ async def chat(message: ChatMessage):
             # Fallback to string representation
             print(f"Couldn't extract text directly. Result object: {result}")
             response_text = str(result)
+        
+        # Clean up the response to remove any markdown code fences
+        if isinstance(response_text, str):
+            # Remove markdown code fences if present
+            if response_text.startswith("```html"):
+                response_text = response_text.replace("```html", "", 1)
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]
+            
+            # Remove any other code fence markers
+            response_text = response_text.replace("```", "")
+            
+            # Trim whitespace
+            response_text = response_text.strip()
         
         # Return the AI's response to the frontend
         return {"response": response_text}

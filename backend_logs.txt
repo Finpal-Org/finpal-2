@@ -1,0 +1,25 @@
+Starting FinPal Backend...
+Server will be available at: http://localhost:3002
+INFO:     Will watch for changes in these directories: ['/Users/unrankedalzahrani/Desktop/finpal-svelte/backend']
+ERROR:    [Errno 48] Address already in use
+Current directory: /Users/unrankedalzahrani/Desktop/finpal-svelte/backend/src/services
+Backend directory: /Users/unrankedalzahrani/Desktop/finpal-svelte/backend
+Current sys.path: ['/Users/unrankedalzahrani/Desktop/finpal-svelte/backend', '/Users/unrankedalzahrani/Desktop/finpal-svelte/backend/src', '/Users/unrankedalzahrani/Desktop/finpal-svelte/backend/src', '/Users/unrankedalzahrani/Desktop/finpal-svelte/backend', '/Library/Frameworks/Python.framework/Versions/3.13/lib/python313.zip', '/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13', '/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/lib-dynload', '/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages']
+Successfully imported pydantic_ai modules
+Trying dot import for MCPClient...
+Dot import successful
+CONFIG_FILE path: /Users/unrankedalzahrani/Desktop/finpal-svelte/backend/mcp_config.json
+CONFIG_FILE exists: True
+Starting FinPal AI Backend...
+Server will be available at: http://localhost:3002
+Press Ctrl+C to stop the server
+
+ERROR: Backend startup failed!
+Please check the error message above.
+
+Common issues:
+1. Make sure you have installed all required packages
+2. Check that the paths in mcp_config.json are correct
+3. Verify your API keys in .env file
+
+Press Enter to continue...

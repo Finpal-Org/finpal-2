@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 *.env
 *.pdf
+*.swift
 venv
 
 # Firebase key

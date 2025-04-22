@@ -9,14 +9,14 @@ import uvicorn
 current_dir = pathlib.Path(__file__).parent.resolve()
 sys.path.insert(0, str(current_dir))
 
-# Now import the api module
+# import the api module
 import api
 
 # Load environment variables from .env file (API keys, etc.)
 load_dotenv()
 
 # Define the port
-PORT = 3002  # Changed from 3001 to avoid conflicts
+PORT = 3002  # Use port 3002 as expected by frontend
 
 if __name__ == "__main__":
     print("Starting FinPal AI Backend...")
