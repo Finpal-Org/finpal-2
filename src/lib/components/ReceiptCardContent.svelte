@@ -2,6 +2,7 @@
   // Import shadcn components
   import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
   import { Separator } from './ui/separator';
+  import { convertArabicToEnglishNumbers } from '../utils';
 
   // Import ReceiptData type
   import type { ReceiptData } from '../../types';
@@ -12,6 +13,9 @@
   // Format date to MM/DD/YYYY
   function formatDate(dateStr: string | undefined): string | null {
     if (!dateStr) return null;
+
+    // First convert any Arabic/Persian numerals to English
+    dateStr = convertArabicToEnglishNumbers(dateStr);
 
     try {
       // Handle different date formats (yyyy-mm-dd, dd.mm.yyyy, dd-mm-yyyy)
@@ -68,8 +72,10 @@
   // Helper function to remove dollar sign if present
   function removeSign(value: string | undefined): string {
     if (!value) return '';
+    // Convert any Arabic/Persian numerals to English before processing
+    const englishValue = convertArabicToEnglishNumbers(value);
     // Remove $ and any non-numeric characters except decimal point
-    return String(value).replace(/[^\d.]/g, '');
+    return String(englishValue).replace(/[^\d.]/g, '');
   }
 </script>
 
@@ -110,7 +116,11 @@
               <div class="flex justify-between gap-2">
                 <span class="text-muted-foreground">Contact</span>
                 <!-- TODO: needs proper phone formating for quick access (copy paste) -->
-                <span><a href="tel:{receipt.phone}"> {receipt.phone}</a></span>
+                <span>
+                  <a href="tel:{receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}">
+                    {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
+                  </a>
+                </span>
               </div>
             {/if}
 

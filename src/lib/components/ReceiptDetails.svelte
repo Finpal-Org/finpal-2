@@ -16,6 +16,7 @@
     formatDate as formatDateUtil,
     monthsToDays
   } from '../utils/warrantyUtils';
+  import { convertArabicToEnglishNumbers } from '../utils';
 
   // Add receipt prop
   export let receipt: ReceiptData;
@@ -65,8 +66,10 @@
   // Helper function to remove dollar sign if present
   function removeSign(value: string | undefined): string {
     if (!value) return '';
+    // Convert any Arabic/Persian numerals to English before processing
+    const englishValue = convertArabicToEnglishNumbers(value);
     // Remove $ and any non-numeric characters except decimal point
-    return String(value).replace(/[^\d.]/g, '');
+    return String(englishValue).replace(/[^\d.]/g, '');
   }
 
   // Function to handle warranty settings for an item
@@ -246,7 +249,7 @@
                       {@const formattedDate = formatDate(receipt.date)}
                       {#if formattedDate}
                         <Table.Row>
-                          <Table.Cell class="font-medium">Purchase Date</Table.Cell>
+                          <Table.Cell class="font-medium">Date</Table.Cell>
                           <Table.Cell>{formattedDate}</Table.Cell>
                         </Table.Row>
                       {/if}
@@ -260,10 +263,30 @@
                       </Table.Row>
                     {/if}
 
+                    {#if hasValue(receipt?.address)}
+                      <Table.Row>
+                        <Table.Cell class="font-medium">Address</Table.Cell>
+                        <!-- address might not need arabic -> english numbers -->
+                        <Table.Cell
+                          >{receipt.address
+                            ? convertArabicToEnglishNumbers(receipt.address)
+                            : ''}</Table.Cell
+                        >
+                      </Table.Row>
+                    {/if}
+
                     {#if hasValue(receipt?.phone)}
                       <Table.Row>
                         <Table.Cell class="font-medium">Contact</Table.Cell>
-                        <Table.Cell><a href="tel:{receipt.phone}">{receipt.phone}</a></Table.Cell>
+                        <Table.Cell>
+                          <a
+                            href="tel:{receipt.phone
+                              ? convertArabicToEnglishNumbers(receipt.phone)
+                              : ''}"
+                          >
+                            {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
+                          </a>
+                        </Table.Cell>
                       </Table.Row>
                     {/if}
 
