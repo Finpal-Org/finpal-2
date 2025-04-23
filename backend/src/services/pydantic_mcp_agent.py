@@ -55,7 +55,7 @@ except (ImportError, ValueError) as e:
 # Get the directory where the current script is located
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 
-# Define the path to the config file relative to the script directory
+# mcp_config.js is transformed -> .json format used here
 CONFIG_FILE = os.path.join(backend_dir, "mcp_config.json")
 print(f"CONFIG_FILE path: {CONFIG_FILE}")
 print(f"CONFIG_FILE exists: {os.path.exists(CONFIG_FILE)}")

@@ -38,3 +38,5 @@ browser-tools-mcp
 .azure-doc-ai-test.py
 
 browser-tools-mcp
+#for backend files
+__pycache__
