@@ -7,4 +7,5 @@ rich
 
 # AI and MCP dependencies
 pydantic-ai
-mission-control-protocol 
+# Temporarily commented out due to deployment issues
+# mission-control-protocol 
