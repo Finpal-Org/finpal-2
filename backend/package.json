@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
+    "prestart": "node -e \"const fs=require('fs'); const path=require('path'); const config=require('./mcp_config.js'); fs.writeFileSync(path.join(__dirname,'mcp_config.json'), JSON.stringify(config, null, 2));\"",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-config": "node generate-config.js",
-    "prestart": "npm run generate-config"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",

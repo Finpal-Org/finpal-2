@@ -31,7 +31,7 @@ export class MCPClient {
 
   constructor() {
     // Get backend URL from environment or use default
-    this.apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    this.apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   }
 
   /**
