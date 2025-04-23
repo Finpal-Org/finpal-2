@@ -1,3 +1,10 @@
-# pydantic-ai>=0.1.0
-# mission-control-protocol>=0.1.0 
-python-dotenv>=1.0.0 
+# Core dependencies
+fastapi
+uvicorn
+python-dotenv
+pydantic
+rich
+
+# AI and MCP dependencies
+pydantic-ai
+mission-control-protocol 

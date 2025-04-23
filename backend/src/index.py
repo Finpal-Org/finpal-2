@@ -1,8 +1,18 @@
+# todo I believe unneeded cause of cloud functions
 # Main entry point for our backend server
 import os
 import sys
 import pathlib
-from dotenv import load_dotenv
+
+# For local development, try to load dotenv, but this isn't needed on Render
+# since environment variables are provided directly
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Only needed for local development
+except ImportError:
+    # This is fine in production where env vars are set directly
+    pass
+
 import uvicorn
 
 # Add the current directory to the Python path to fix imports
@@ -12,11 +22,8 @@ sys.path.insert(0, str(current_dir))
 # import the api module
 import api
 
-# Load environment variables from .env file (API keys, etc.)
-load_dotenv()
-
 # Define the port
-PORT = 3002  # Use port 3002 as expected by frontend
+PORT = int(os.environ.get("PORT", 3002))  # Use PORT env var from Render.com or default to 3002
 
 if __name__ == "__main__":
     print("Starting FinPal AI Backend...")
