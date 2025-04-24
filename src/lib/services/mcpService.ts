@@ -158,4 +158,42 @@ export class MCPClient {
   getTools(): any[] {
     return this.tools;
   }
+
+  /**
+   * Send a message to the direct chat endpoint that uses raw receipt context
+   *
+   * @param message User message to send
+   * @param model Optional Gemini model name to use
+   * @returns Response from the direct chat endpoint
+   */
+  async sendDirectContextMessage(
+    message: string,
+    model: string = 'gemini-2.0-flash'
+  ): Promise<string> {
+    try {
+      // Construct the request URL
+      const url = `${this.apiUrl}/api/direct_chat`;
+
+      // Send the request with message and model
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message, model })
+      });
+
+      // Check if the request was successful
+      if (!response.ok) {
+        throw new Error(`Direct chat request failed with status ${response.status}`);
+      }
+
+      // Parse the response
+      const data = await response.json();
+      return data.response;
+    } catch (error) {
+      console.error('Error sending direct chat message:', error);
+      throw error;
+    }
+  }
 }

@@ -7,14 +7,37 @@ import uvicorn
 import os
 import sys
 import pathlib
+import logging
+import json
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Ensure our services directory is in the path
 current_dir = pathlib.Path(__file__).parent.absolute()
 services_dir = os.path.join(current_dir, "services")
 sys.path.insert(0, str(services_dir))
 
-
+# Import our services
 from src.services.pydantic_mcp_agent import get_pydantic_ai_agent
+from src.services.direct_context import fetch_receipt_context
+
+# Initialize Gemini API for direct context endpoint
+try:
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        logger.error("No Google API key found. Direct chat endpoint will not work")
+    else:
+        genai.configure(api_key=api_key)
+        logger.info("Gemini API initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Gemini API: {str(e)}")
 
 # Create a new FastAPI app (this is our web server)
 app = FastAPI()
@@ -149,6 +172,52 @@ async def chat(message: ChatMessage):
         import traceback
         error_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)  # Log the error for debugging
+        return {"response": f"Sorry, an error occurred: {str(e)}"}
+
+# Define request model for direct chat
+class DirectChatMessage(BaseModel):
+    message: str
+    model: str = "gemini-2.0-flash"  # Default model, can be overridden
+
+# ENDPOINT 5: Direct context chat using raw receipt data
+# This endpoint feeds raw receipt data to Gemini without processing
+@app.post("/api/direct_chat")
+async def direct_chat(message: DirectChatMessage):
+    try:
+        # Check if Gemini is initialized
+        if "genai" not in sys.modules or not os.environ.get("GOOGLE_API_KEY"):
+            raise HTTPException(
+                status_code=500, 
+                detail="Gemini API not initialized. Check GOOGLE_API_KEY environment variable."
+            )
+        
+        # Fetch raw receipt data from Firestore (will use cache if available)
+        receipt_context = fetch_receipt_context(limit=100)
+        
+        # Create Gemini model with minimal settings
+        model = genai.GenerativeModel(
+            model_name=message.model,
+            generation_config={"temperature": 0.2}
+        )
+        
+        # Create prompt with user query and receipt context
+        prompt = f"""
+Here is the raw data from a user's receipt database:
+
+{receipt_context}
+
+Based on this data, please answer the following question:
+{message.message}
+"""
+        
+        # Get response from Gemini
+        response = model.generate_content(prompt)
+        
+        # Return response
+        return {"response": response.text}
+        
+    except Exception as e:
+        logger.error(f"Error in direct chat: {str(e)}")
         return {"response": f"Sorry, an error occurred: {str(e)}"}
 
 # Cleanup handler for when the server shuts down

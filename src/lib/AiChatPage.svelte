@@ -91,8 +91,10 @@
       messages = [...messages, { role: 'user', content: messageToSend }];
       userInput = '';
 
-      // Send to backend and get response
-      const response = await apiClient.processQuery(messageToSend);
+      // // Send to backend and get response
+      // const response = await apiClient.processQuery(messageToSend);
+      // Send to direct context endpoint instead of regular query processing
+      const response = await apiClient.sendDirectContextMessage(messageToSend);
 
       // Store raw response for debug purposes
       rawResponse = JSON.stringify(response, null, 2);

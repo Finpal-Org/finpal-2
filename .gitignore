@@ -40,3 +40,5 @@ browser-tools-mcp
 browser-tools-mcp
 #for backend files
 __pycache__
+.cursor
+*.mdc
