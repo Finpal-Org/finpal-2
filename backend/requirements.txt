@@ -11,7 +11,12 @@ google-generativeai
 # Temporarily commented out due to deployment issues
 # mission-control-protocol 
 
-# Additional dependencies
+# Firebase dependencies
+firebase
 firebase-admin
+firebase-client  # Client SDK for Firestore access
+pyrebase4  # Alternative Firebase client implementation
+
+# Additional dependencies
 
 # Note: Install with pip install -r requirements.txt 
