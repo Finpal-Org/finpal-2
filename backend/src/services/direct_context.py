@@ -20,6 +20,17 @@ _context_cache = None
 _last_refresh_time = 0
 _cache_ttl = 30 * 60  # 30 minutes in seconds
 
+# Hardcoded Firebase config as fallback (copied from frontend)
+DEFAULT_FIREBASE_CONFIG = {
+  "apiKey": "AIzaSyAeSN-aBItuUN21fnbsklwdNrMCMNjWjJE",
+  "authDomain": "finpal-5d6e8.firebaseapp.com",
+  "projectId": "finpal-5d6e8",
+  "storageBucket": "finpal-5d6e8.firebasestorage.app",
+  "messagingSenderId": "446406693977",
+  "appId": "1:446406693977:web:517d41f2c0e7a0cf880d48",
+  "measurementId": "G-0N6KLHTSQZ"
+}
+
 def initialize_firebase():
     """Initialize Firebase and return Firestore client"""
     global _db
@@ -34,16 +45,19 @@ def initialize_firebase():
         
         # Check if Firebase Admin is already initialized
         if not firebase_admin._apps:
-            # Get Firebase credentials from environment variable
+            # Try environment variable first
             firebase_config_str = os.environ.get("FIREBASE_CONFIG")
-            if not firebase_config_str:
-                raise ValueError("FIREBASE_CONFIG environment variable not set")
-            
-            # Parse the JSON string into a dictionary
-            firebase_config = json.loads(firebase_config_str)
-            
-            # Initialize Firebase Admin with the credentials
-            cred = credentials.Certificate(firebase_config)
+            if firebase_config_str:
+                # Parse the JSON string into a dictionary
+                firebase_config = json.loads(firebase_config_str)
+                
+                # Initialize Firebase Admin with the credentials
+                cred = credentials.Certificate(firebase_config)
+            else:
+                # Fallback to hardcoded config
+                logger.info("Using hardcoded Firebase config")
+                cred = credentials.Certificate(DEFAULT_FIREBASE_CONFIG)
+                
             firebase_admin.initialize_app(cred)
         
         # Get Firestore client
