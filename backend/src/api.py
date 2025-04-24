@@ -9,15 +9,37 @@ import sys
 import pathlib
 import logging
 import json
-import google.generativeai as genai
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Try to import google.generativeai with proper error handling
+try:
+    import google.generativeai as genai
+    has_genai = True
+    
+    # Initialize Gemini API for direct context endpoint
+    try:
+        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            logger.error("No Google API key found. Direct chat endpoint will not work")
+            has_genai = False
+        else:
+            genai.configure(api_key=api_key)
+            logger.info("Gemini API initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini API: {str(e)}")
+        has_genai = False
+except ImportError:
+    logger.error("google-generativeai package not installed. Direct chat endpoint will not work.")
+    logger.error("Install with: pip install google-generativeai")
+    has_genai = False
+    genai = None
 
 # Ensure our services directory is in the path
 current_dir = pathlib.Path(__file__).parent.absolute()
@@ -25,19 +47,17 @@ services_dir = os.path.join(current_dir, "services")
 sys.path.insert(0, str(services_dir))
 
 # Import our services
-from src.services.pydantic_mcp_agent import get_pydantic_ai_agent
-from src.services.direct_context import fetch_receipt_context
-
-# Initialize Gemini API for direct context endpoint
 try:
-    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        logger.error("No Google API key found. Direct chat endpoint will not work")
-    else:
-        genai.configure(api_key=api_key)
-        logger.info("Gemini API initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Gemini API: {str(e)}")
+    from src.services.pydantic_mcp_agent import get_pydantic_ai_agent
+except ImportError:
+    logger.error("Failed to import pydantic_mcp_agent")
+    get_pydantic_ai_agent = None
+
+try:
+    from src.services.direct_context import fetch_receipt_context
+except ImportError:
+    logger.error("Failed to import direct_context")
+    fetch_receipt_context = None
 
 # Create a new FastAPI app (this is our web server)
 app = FastAPI()
@@ -184,12 +204,17 @@ class DirectChatMessage(BaseModel):
 @app.post("/api/direct_chat")
 async def direct_chat(message: DirectChatMessage):
     try:
-        # Check if Gemini is initialized
-        if "genai" not in sys.modules or not os.environ.get("GOOGLE_API_KEY"):
-            raise HTTPException(
-                status_code=500, 
-                detail="Gemini API not initialized. Check GOOGLE_API_KEY environment variable."
-            )
+        # Check if Gemini is available
+        if not has_genai:
+            return {
+                "response": "Direct chat is currently unavailable. The google-generativeai package is not installed."
+            }
+        
+        # Check if we can fetch receipt context
+        if fetch_receipt_context is None:
+            return {
+                "response": "Direct chat is currently unavailable. The receipt context service is not available."
+            }
         
         # Fetch raw receipt data from Firestore (will use cache if available)
         receipt_context = fetch_receipt_context(limit=100)
