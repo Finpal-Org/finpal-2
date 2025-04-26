@@ -42,3 +42,6 @@ browser-tools-mcp
 __pycache__
 .cursor
 *.mdc
+
+# firebase admin
+finpal-5d6e8-firebase-adminsdk-fbsvc-db54f9d30d.json
