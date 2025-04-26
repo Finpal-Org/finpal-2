@@ -110,23 +110,32 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
 
     async def initialize(self) -> None:
         """Initialize the server connection."""
-        command = (
-            shutil.which("npx") #or docker depends on server
-            if self.config["command"] == "npx"
-            else self.config["command"]
-        )
-        if command is None:
-            raise ValueError(f"The command '{self.config['command']}' could not be found in PATH. Make sure it's installed.")
-        
-        #next is identifying the parameters of the server
-        server_params = StdioServerParameters(
-            command=command,
-            args=self.config["args"], #mcp configs
-            env=self.config["env"] # for api keys
-            if self.config.get("env")
-            else None,
-        )
         try:
+            command = (
+                shutil.which("npx") #or docker depends on server
+                if self.config["command"] == "npx"
+                else self.config["command"]
+            )
+            if command is None:
+                raise ValueError(f"The command '{self.config['command']}' could not be found in PATH. Make sure it's installed.")
+            
+            # Check if the module exists before attempting to run it
+            if self.config["command"] == "node":
+                module_path = self.config["args"][0]
+                if not os.path.exists(module_path):
+                    logging.warning(f"Module not found at {module_path} for server {self.name}")
+                    logging.warning(f"Skipping server {self.name}")
+                    return
+            
+            #next is identifying the parameters of the server
+            server_params = StdioServerParameters(
+                command=command,
+                args=self.config["args"], #mcp configs
+                env=self.config["env"] # for api keys
+                if self.config.get("env")
+                else None,
+            )
+            
             logging.debug(f"Starting MCP server: {self.name} with command: {command} {' '.join(self.config['args'])}")
             
             #Make the connection to the server via stdio
@@ -150,12 +159,19 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
             import traceback
             logging.error(f"Traceback: {traceback.format_exc()}")
             await self.cleanup()
-            raise
+            # Instead of raising the exception, just return
+            # This allows other servers to continue working
+            return
 
     # take the tools from the server and convert them to pydantic_ai Tools
     async def create_pydantic_ai_tools(self) -> List[PydanticTool]: 
         """Convert MCP tools to pydantic_ai Tools."""
         try:
+            # If session wasn't initialized properly, return empty list
+            if not self.session:
+                logging.warning(f"Session for server {self.name} not initialized, skipping tool creation")
+                return []
+                
             tools = (await self.session.list_tools()).tools #get list of tools
             return [self.create_tool_instance(tool) for tool in tools] #convert each tool to a pydantic_ai Tool
         except Exception as e:

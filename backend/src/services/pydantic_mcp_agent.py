@@ -113,13 +113,38 @@ async def get_pydantic_ai_agent():
         # Initialize MCP client with all tools from config
         print("Creating MCPClient instance...")
         client = MCPClient()
+        
+        # Check if config file exists
+        if not os.path.exists(CONFIG_FILE):
+            print(f"Warning: Config file not found at {CONFIG_FILE}")
+            fallback_path = os.path.join(backend_dir, "mcp_config.json")
+            if os.path.exists(fallback_path):
+                print(f"Using fallback config at {fallback_path}")
+                CONFIG_FILE = fallback_path
+            else:
+                print("No fallback config found. Using AI agent without tools")
+                return None, Agent(model=get_model())
+        
         print("Loading servers from config...")
-        client.load_servers(str(CONFIG_FILE))
+        try:
+            client.load_servers(str(CONFIG_FILE))
+        except Exception as e:
+            print(f"Error loading servers from config: {e}")
+            print(f"Stack trace: {traceback.format_exc()}")
+            print("Using AI agent without tools")
+            return None, Agent(model=get_model())
         
         try:
             print("Starting MCP client and loading tools...")
-            tools = await client.start()
-            print(f"Client started successfully, found {len(tools)} tools")
+            # Start the client with exception handling for individual servers
+            tools = []
+            try:
+                tools = await client.start()
+                print(f"Client started successfully, found {len(tools)} tools")
+            except Exception as e:
+                print(f"Error during MCP client startup: {e}")
+                print(f"Stack trace: {traceback.format_exc()}")
+                print("Will attempt to continue with any tools that did initialize")
             
             # Modified: Even if tools is empty, we'll log but continue
             if not tools:
