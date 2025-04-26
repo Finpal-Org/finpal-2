@@ -105,6 +105,8 @@ async def get_pydantic_ai_agent():
     Create and return a Pydantic AI agent with all MCP tools.
     This is the main function used by the API to get an agent instance.
     """
+    global CONFIG_FILE  # Add this line to fix the UnboundLocalError
+    
     if MCPClient is None:
         print("Warning: Using AI agent without MCP tools (MCPClient is None)")
         return None, Agent(model=get_model())
