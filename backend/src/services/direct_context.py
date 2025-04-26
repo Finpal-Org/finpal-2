@@ -146,11 +146,13 @@ def fetch_receipt_context(limit: int = 100, force_refresh: bool = False) -> str:
         
         # Initialize Firebase
         db = initialize_firebase()
+        from firebase_admin import firestore
         
         # Query receipts collection using client SDK
         receipts_ref = db.collection("receipts")
-        receipts_docs = receipts_ref.order_by("createdTime", "desc").limit(limit).get()
-        
+        receipts_docs = receipts_ref.order_by("createdTime", direction=firestore.Query.DESCENDING).limit(limit).get()
+        # receipts_docs = receipts_ref.limit(limit).get() #no ordering alternative
+
         # Simple text format of all receipts without processing
         context = "USER RECEIPT DATA:\n\n"
         

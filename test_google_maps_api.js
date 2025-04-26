@@ -1,3 +1,5 @@
+//TODO REMOVE FILE RESET API KEYS
+
 // Simple script to test the Google Maps Places API directly
 import https from 'https';
 
