@@ -40,10 +40,10 @@ def initialize_firebase():
             return _db
             
         # APPROACH 1: Use FIREBASE_CONFIG environment variable (for render.com)
-        if os.environ.get("FIREBASE_CONFIG"):
+        if "FIREBASE_CONFIG" in os.environ:
             try:
                 logger.info("Using FIREBASE_CONFIG environment variable")
-                firebase_config_json = os.environ.get("FIREBASE_CONFIG")
+                firebase_config_json = os.environ["FIREBASE_CONFIG"]
                 
                 # Create a temporary file with the JSON content
                 fd, temp_path = tempfile.mkstemp(suffix='.json')
@@ -64,6 +64,20 @@ def initialize_firebase():
                 return _db
             except Exception as e:
                 logger.error(f"Failed to initialize Firebase with FIREBASE_CONFIG: {str(e)}")
+                # Fall through to next approach
+        
+        # APPROACH 2: Check for Secret File (for render.com)
+        secret_file_path = "/etc/secrets/FIREBASE_CONFIG"
+        if os.path.exists(secret_file_path):
+            try:
+                logger.info(f"Using secret file: {secret_file_path}")
+                cred = credentials.Certificate(secret_file_path)
+                firebase_admin.initialize_app(cred)
+                _db = firestore.client()
+                logger.info("Successfully initialized Firebase using secret file")
+                return _db
+            except Exception as e:
+                logger.error(f"Failed to initialize Firebase with secret file: {str(e)}")
                 # Fall through to next approach
         
         # # APPROACH 2: Try local file (for development environment)
