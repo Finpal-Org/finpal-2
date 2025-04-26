@@ -74,7 +74,7 @@
         ...messages,
         {
           role: 'assistant',
-          content: 'Not connected to AI service. Please make sure the backend is running.'
+          content: 'Connecting to backend... Please give me a minute...'
         }
       ];
       return;

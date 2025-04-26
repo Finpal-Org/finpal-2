@@ -33,43 +33,24 @@ FIREBASE_CONFIG = {
 }
 
 def initialize_firebase():
-    """Initialize Firebase and return Firestore client using client SDK instead of Admin SDK"""
+    """Initialize Firebase using Admin SDK and the ready FIREBASE_CONFIG dict as service account JSON."""
     global _db
-    
-    # If already initialized, return existing client
     if _db is not None:
         return _db
-    
     try:
-        # Import Firebase client SDK (not admin SDK)
-        try:
-            # Check if firebase-client package is installed
-            if importlib.util.find_spec("firebase_client") is None:
-                # If not installed, try to install it
-                import subprocess
-                logger.info("Installing firebase client packages...")
-                subprocess.check_call(["pip", "install", "firebase-client"])
-                
-            from firebase_client import initialize_app, firestore
-        except ImportError:
-            # Fallback to direct imports
-            try:
-                from firebase.firebase import initialize_app, firestore
-            except ImportError:
-                logger.error("Cannot import Firebase client SDK. Install with: pip install firebase-client")
-                raise ImportError("Firebase client SDK not available")
-        
-        # Initialize Firebase app with client config
-        app = initialize_app(FIREBASE_CONFIG)
-        
-        # Get Firestore client
-        _db = firestore.client(app)
-        logger.info("Firestore client created successfully using client SDK")
+        import firebase_admin
+        from firebase_admin import credentials, firestore
+        if firebase_admin._apps:
+            _db = firestore.client()
+            return _db
+        cred = credentials.Certificate(FIREBASE_CONFIG)
+        firebase_admin.initialize_app(cred)
+        _db = firestore.client()
+        logger.info("Firestore client created successfully using Admin SDK and ready config")
         return _db
-        
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {str(e)}")
-        raise ValueError(f"Failed to initialize Firebase client: {str(e)}")
+        raise ValueError(f"Failed to initialize Firebase Admin: {str(e)}")
 
 def check_for_updates() -> bool:
     """
