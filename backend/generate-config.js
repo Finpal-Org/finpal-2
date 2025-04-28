@@ -19,14 +19,14 @@ const config = {
       "env": {
         "BRAVE_API_KEY": process.env.BRAVE_API_KEY || "BSAMKgBTwIL9Qr0fUwQh3ekht3U32Sn"
       },
-      "priority": "essential",
-      "autostart": true
+      "priority": "important",
+      "autostart": false
     },
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "--max-old-space-size=64", "@modelcontextprotocol/server-sequential-thinking"],
-      "priority": "important",
-      "autostart": false
+      "priority": "essential",
+      "autostart": true
     },
     "google-maps": {
       "command": "npx",
@@ -34,14 +34,14 @@ const config = {
       "env": {
         "GOOGLE_MAPS_API_KEY": process.env.GOOGLE_MAPS_API_KEY || "AIzaSyB2kxDjle7yKIVJjoNVKw5vMkENy9TljQQ"
       },
-      "priority": "optional",
+      "priority": "important",
       "autostart": false
     },
     "memory": {
       "command": "npx",
       "args": ["-y", "--max-old-space-size=64", "@modelcontextprotocol/server-memory"],
-      "priority": "optional",
-      "autostart": false
+      "priority": "essential",
+      "autostart": true
     },
     "yfinance": {
       "command": "npx",
@@ -51,9 +51,9 @@ const config = {
     }
   },
   "serverPriorities": {
-    "essential": ["brave-search"],
-    "important": ["sequential-thinking"],
-    "optional": ["google-maps", "memory", "yfinance"]
+    "essential": ["memory", "sequential-thinking"],
+    "important": ["google-maps", "brave-search"],
+    "optional": ["yfinance"]
   }
 };
 

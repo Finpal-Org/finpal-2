@@ -143,6 +143,17 @@ async def get_pydantic_ai_agent():
         try:
             client.load_servers(str(CONFIG_FILE))
             print(f"Loaded {len(client.servers)} server configurations")
+            
+            # Debug: Print actual config loaded
+            print(f"\nConfig loaded from {CONFIG_FILE}:")
+            try:
+                with open(CONFIG_FILE, 'r') as f:
+                    config_content = f.read()
+                    print(config_content[:500] + "..." if len(config_content) > 500 else config_content)
+            except Exception as e:
+                print(f"Error reading config for debug: {e}")
+            
+            # Print server details    
             for server in client.servers:
                 print(f"  - Server: {server.name}, Priority: {server.config.get('priority', 'unknown')}, Autostart: {server.config.get('autostart', False)}")
         except Exception as e:

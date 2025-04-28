@@ -52,13 +52,17 @@ class MCPClient:
         
         # First, initialize only essential servers and those with autostart=true
         for server in self.servers:
-            # Skip if not essential or autostart is false
-            if server.name not in essential_servers and not server.config.get("autostart", False):
-                logging.info(f"Skipping non-essential server: {server.name} (will load on demand)")
+            # Check if server is essential either by name or by priority setting
+            is_essential = (server.name in essential_servers or 
+                            server.config.get("priority") == "essential")
+            
+            # Initialize if essential or has autostart=true
+            if not (is_essential or server.config.get("autostart", False)):
+                logging.info(f"Skipping non-essential server: {server.name} - Priority: {server.config.get('priority', 'unknown')}, Autostart: {server.config.get('autostart', False)}")
                 continue
                 
             try:
-                logging.debug(f"Initializing essential server: {server.name}")
+                logging.info(f"Initializing server: {server.name} - Priority: {server.config.get('priority', 'unknown')}, Autostart: {server.config.get('autostart', False)}")
                 await server.initialize() # init server
                 logging.debug(f"Creating pydantic tools for server: {server.name}")
                 tools = await server.create_pydantic_ai_tools() # create pydantic tools
