@@ -4,6 +4,7 @@ uvicorn
 python-dotenv
 pydantic
 rich
+psutil  # For memory monitoring and server optimization
 
 # AI and MCP dependencies
 pydantic-ai

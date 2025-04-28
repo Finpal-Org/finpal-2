@@ -45,10 +45,20 @@ class MCPClient:
     async def start(self) -> List[PydanticTool]:
         """START each MCP server and returns the tools for each server formatted for Pydantic AI."""
         self.tools = []
-        # loop over servers and initialize them
+        
+        # Get priority levels from config
+        priorities = self.config.get("serverPriorities", {})
+        essential_servers = set(priorities.get("essential", []))
+        
+        # First, initialize only essential servers and those with autostart=true
         for server in self.servers:
+            # Skip if not essential or autostart is false
+            if server.name not in essential_servers and not server.config.get("autostart", False):
+                logging.info(f"Skipping non-essential server: {server.name} (will load on demand)")
+                continue
+                
             try:
-                logging.debug(f"Initializing server: {server.name}")
+                logging.debug(f"Initializing essential server: {server.name}")
                 await server.initialize() # init server
                 logging.debug(f"Creating pydantic tools for server: {server.name}")
                 tools = await server.create_pydantic_ai_tools() # create pydantic tools

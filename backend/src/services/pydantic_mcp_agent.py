@@ -7,6 +7,7 @@ import pathlib
 import sys
 import os
 import traceback
+import psutil  # Add this import for memory monitoring
 
 # Set up paths to make imports work
 current_dir = pathlib.Path(__file__).parent.resolve()
@@ -107,6 +108,17 @@ async def get_pydantic_ai_agent():
     """
     global CONFIG_FILE  # Add this line to fix the UnboundLocalError
     
+    # Log memory usage
+    try:
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        print(f"Current memory usage: {memory_info.rss / 1024 / 1024:.2f} MB")
+        print(f"Available system memory: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
+    except ImportError:
+        print("psutil not available for memory monitoring")
+    except Exception as e:
+        print(f"Error checking memory: {e}")
+    
     if MCPClient is None:
         print("Warning: Using AI agent without MCP tools (MCPClient is None)")
         return None, Agent(model=get_model())
@@ -130,6 +142,9 @@ async def get_pydantic_ai_agent():
         print("Loading servers from config...")
         try:
             client.load_servers(str(CONFIG_FILE))
+            print(f"Loaded {len(client.servers)} server configurations")
+            for server in client.servers:
+                print(f"  - Server: {server.name}, Priority: {server.config.get('priority', 'unknown')}, Autostart: {server.config.get('autostart', False)}")
         except Exception as e:
             print(f"Error loading servers from config: {e}")
             print(f"Stack trace: {traceback.format_exc()}")
@@ -137,12 +152,18 @@ async def get_pydantic_ai_agent():
             return None, Agent(model=get_model())
         
         try:
-            print("Starting MCP client and loading tools...")
+            print("Starting MCP client and loading essential tools...")
             # Start the client with exception handling for individual servers
             tools = []
             try:
                 tools = await client.start()
                 print(f"Client started successfully, found {len(tools)} tools")
+                if tools:
+                    print("Tools available:")
+                    for tool in tools:
+                        print(f"  - {tool.name}")
+                else:
+                    print("No tools were loaded")
             except Exception as e:
                 print(f"Error during MCP client startup: {e}")
                 print(f"Stack trace: {traceback.format_exc()}")
@@ -155,6 +176,16 @@ async def get_pydantic_ai_agent():
                 print("Using AI agent without tools")
                 return client, Agent(model=get_model())
             else:
+                # Check memory again
+                try:
+                    process = psutil.Process(os.getpid())
+                    memory_info = process.memory_info()
+                    print(f"Memory usage after tool loading: {memory_info.rss / 1024 / 1024:.2f} MB")
+                except ImportError:
+                    pass
+                except Exception as e:
+                    print(f"Error checking memory: {e}")
+                
                 # Clean tool schemas to remove $schema fields - Gemini doesn't like them
                 print("Cleaning tool schemas...")
                 for tool in tools:
