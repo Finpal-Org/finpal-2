@@ -54,7 +54,9 @@
   let messages: Array<{ role: 'user' | 'assistant'; content: any }> = [
     {
       role: 'assistant',
-      content: "Hello! I'm FinChat, your finance assistant. How can I help you today?"
+      content: isConnected
+        ? "Hello! I'm FinChat, your finance assistant. How can I help you today?"
+        : 'Connecting to Backend.. will take a minute..'
     }
   ];
 

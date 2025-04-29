@@ -187,6 +187,16 @@ class MCPServer: #CLASS FOR EACH MCP SERVER
                 return []
                 
             tools = (await self.session.list_tools()).tools #get list of tools
+            
+            # Filter tools based on allowedTools configuration
+            allowed_tools = self.config.get("allowedTools", None)
+            if allowed_tools is not None:
+                logging.info(f"Filtering tools for {self.name} based on allowedTools: {allowed_tools}")
+                tools = [tool for tool in tools if tool.name in allowed_tools]
+                logging.info(f"Server {self.name} has {len(tools)} allowed tools out of available tools")
+            else:
+                logging.info(f"No allowedTools specified for {self.name}, loading all {len(tools)} tools")
+                
             return [self.create_tool_instance(tool) for tool in tools] #convert each tool to a pydantic_ai Tool
         except Exception as e:
             logging.error(f"Error listing tools for server {self.name}: {e}")

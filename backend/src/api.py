@@ -220,8 +220,7 @@ async def direct_chat(message: DirectChatMessage):
         # Fetch raw receipt data from Firestore (will use cache if available)
         receipt_context = fetch_receipt_context(limit=100)
         
-        # Create a prompt that includes both receipt data and the user's question
-        # But use the agent to process it for consistent response formatting
+        # ! important Create a prompt that includes both receipt data and the user's question, But use the agent to process it for consistent response formatting
         prompt = f"I'm going to give you receipt data followed by a question. Receipt data: {receipt_context}. Question: {message.message}"
         
         # Use the pydantic agent so we get consistent formatting

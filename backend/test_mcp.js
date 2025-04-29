@@ -38,6 +38,16 @@ try {
   }
   console.log(`Autostart servers: ${autostartServers.join(', ')}`);
 
+  // Check allowedTools
+  console.log("\nAllowedTools per server:");
+  for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+    if (serverConfig.allowedTools) {
+      console.log(`  - ${serverName}: ${serverConfig.allowedTools.length} tools (${serverConfig.allowedTools.join(', ')})`);
+    } else {
+      console.warn(`  - WARNING: ${serverName} has no allowedTools specified!`);
+    }
+  }
+
   // Verify each essential server has correct settings
   let errors = false;
   for (const server of essential) {
