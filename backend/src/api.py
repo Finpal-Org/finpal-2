@@ -200,46 +200,66 @@ class DirectChatMessage(BaseModel):
     model: str = "gemini-2.0-flash"  # Default model, can be overridden
 
 # ENDPOINT 5: Direct context chat using raw receipt data
-# This endpoint feeds raw receipt data to Gemini without processing
+# This endpoint provides a direct way to query receipt data with simpler caching
 @app.post("/api/direct_chat")
 async def direct_chat(message: DirectChatMessage):
     try:
-        # Check if Gemini is available
-        if not has_genai:
-            return {
-                "response": "Direct chat is currently unavailable. The google-generativeai package is not installed."
-            }
-        
         # Check if we can fetch receipt context
         if fetch_receipt_context is None:
             return {
                 "response": "Direct chat is currently unavailable. The receipt context service is not available."
             }
         
+        # Get the agent for formatting consistency
+        agent = await get_or_create_agent()
+        if agent is None:
+            return {
+                "response": "Direct chat is currently unavailable. Agent initialization failed."
+            }
+
         # Fetch raw receipt data from Firestore (will use cache if available)
         receipt_context = fetch_receipt_context(limit=100)
         
-        # Create Gemini model with minimal settings
-        model = genai.GenerativeModel(
-            model_name=message.model,
-            generation_config={"temperature": 0.2}
-        )
+        # Create a prompt that includes both receipt data and the user's question
+        # But use the agent to process it for consistent response formatting
+        prompt = f"I'm going to give you receipt data followed by a question. Receipt data: {receipt_context}. Question: {message.message}"
         
-        # Create prompt with user query and receipt context
-        prompt = f"""
-Here is the raw data from a user's receipt database:
-
-{receipt_context}
-
-Based on this data, please answer the following question:
-{message.message}
-"""
+        # Use the pydantic agent so we get consistent formatting
+        result = await agent.run(prompt)
         
-        # Get response from Gemini
-        response = model.generate_content(prompt)
+        # Get the response content from the result
+        response_text = ""
         
-        # Return response
-        return {"response": response.text}
+        # Check the structure of the result to determine how to extract the response
+        if hasattr(result, 'data'):
+            response_text = result.data
+        elif hasattr(result, 'text'):
+            response_text = result.text
+        elif hasattr(result, 'content'):
+            response_text = result.content
+        elif hasattr(result, 'response'):
+            response_text = result.response
+        else:
+            # Fallback to string representation
+            print(f"Couldn't extract text directly. Result object: {result}")
+            response_text = str(result)
+        
+        # Clean up the response to remove any markdown code fences
+        if isinstance(response_text, str):
+            # Remove markdown code fences if present
+            if response_text.startswith("```html"):
+                response_text = response_text.replace("```html", "", 1)
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]
+            
+            # Remove any other code fence markers
+            response_text = response_text.replace("```", "")
+            
+            # Trim whitespace
+            response_text = response_text.strip()
+        
+        # Return the response
+        return {"response": response_text}
         
     except Exception as e:
         logger.error(f"Error in direct chat: {str(e)}")
