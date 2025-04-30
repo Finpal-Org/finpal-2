@@ -10,15 +10,17 @@ const receiptCollection = collection(db, 'receipts'); //receipt collection ref
 export async function getReceipts() {
   //fetch receipts from firestore
   try {
-    //1. before getting docs lets order them by create date (newest first)
-    const receiptsQuery = query(receiptCollection, orderBy('createdTime', 'desc')); //query collection, filter by order decending
-    const receiptDocs = await getDocs(receiptsQuery); //fetch filtered receipts docs
+    // First get all receipts without filtering
+    const allReceiptsQuery = query(receiptCollection);
+    const allReceiptDocs = await getDocs(allReceiptsQuery);
 
-    //2.Loop over Receipts and store them in receipts array
-
+    // Clear current receipts
     receipts.length = 0;
 
-    receiptDocs.docs.forEach((doc) => {
+    // Process all receipts
+    const processedReceipts: ReceiptData[] = [];
+
+    allReceiptDocs.docs.forEach((doc) => {
       // Extract all the data first
       const rawData = doc.data();
 
@@ -38,14 +40,15 @@ export async function getReceipts() {
         };
       }
 
-      // item empty bu default
+      // item empty by default
       let itemsProperties = [];
 
       // if there are items
-      if (rawData && rawData.items) {
+      if (rawData && (rawData.items || rawData.line_items)) {
+        const itemsSource = rawData.line_items || rawData.items;
         //if there are items nested
-        if (rawData && rawData.items && rawData.items.content) {
-          itemsProperties = rawData.items.content.map((item: item) => ({
+        if (itemsSource && itemsSource.content) {
+          itemsProperties = itemsSource.content.map((item: item) => ({
             description: item.description || item.Description || '',
             amount: item.amount || item.Amount || '',
             currency: item.currency || item.Currency || 'SAR',
@@ -54,7 +57,7 @@ export async function getReceipts() {
           }));
           // else items flat
         } else {
-          itemsProperties = rawData.items.map((item: item) => ({
+          itemsProperties = itemsSource.map((item: item) => ({
             description: item.description || item.Description || '',
             amount: item.amount || item.Amount || '',
             currency: item.currency || item.Currency || 'SAR',
@@ -63,73 +66,63 @@ export async function getReceipts() {
           }));
         }
       }
-      // rawData && rawData.items ?
 
-      // : rawData.items.content.map((item: item) => {
-      //     return {
-      //       description: item.Description || '',
-      //       amount: item.Amount || '',
-      //       currency: item.Currency || 'SAR',
-      //       quantity: item.Quantity || ''
-      //     };
-      //   });
-
-      //Step 1 Flattened version:
-
-      // STEP 1: Create separate variables with explicit checks
-      // const merchantContent =
-      //   // if rawData.merchantName exists, then get the content
-      //   rawData && rawData.merchantName && rawData.merchantName.content
-      //     ? rawData.merchantName.content
-      //     : 'Unknown';
-
-      // const addressContent =
-      //   rawData && rawData.address && rawData.address.content ? rawData.address.content : 'Unknown';
-
-      // const categoryContent =
-      //   rawData && rawData.category && rawData.category.content
-      //     ? rawData.category.content
-      //     : 'Other';
-
-      // const dateContent =
-      //   rawData && rawData.date && rawData.date.content ? rawData.date.content : 'Unknown';
-
-      // const subtotalContent =
-      //   rawData && rawData.subtotal && rawData.subtotal.content
-      //     ? rawData.subtotal.content
-      //     : 'Unknown';
-
-      // const totalContent =
-      //   rawData && rawData.total && rawData.total.content ? rawData.total.content : 'Unknown';
-
-      // const totalTaxContent =
-      //   rawData && rawData.totalTax && rawData.totalTax.content
-      //     ? rawData.totalTax.content
-      //     : 'Unknown';
-
-      // // check if there is data-> there  is phone obj ->content of phone ?
-      // const phoneContent =
-      //   rawData && rawData.phone && rawData.phone.content ? rawData.phone.content : 'Unknown';
-
-      // STEP 2: Build object from safe variables
+      // Build object from safe variables
       const safeReceipt = {
-        id: doc.id, //TODO: do we need doc id?
-        merchantName: rawData.merchantName || 'Unknown',
-        address: rawData.address || 'Unknown',
+        id: doc.id,
+        receipt_id: rawData.receipt_id || doc.id,
+        receipt_image: rawData.receipt_image || rawData.imageUrl || '',
         category: rawData.category || 'Other',
         date: rawData.date || 'Unknown',
-        subtotal: rawData.subtotal || 'Unknown',
-        total: rawData.total || 'Unknown',
-        totalTax: rawData.totalTax || 'Unknown',
-        phone: rawData.phone || 'Unknown',
-        items: itemsProperties || 'Unknown',
-        createdTime: rawData.createdTime ? rawData.createdTime.toDate() : new Date(),
+        invoice_number: rawData.invoice_number || rawData.transactionId || '',
+        is_duplicate: rawData.is_duplicate || false,
+        note: rawData.note || '',
+
+        // Money fields
+        subtotal: rawData.subtotal || '0',
+        tax: rawData.tax || rawData.totalTax || '0',
+        total: rawData.total || '0',
         tip: rawData.tip || '0',
-        imageUrl: rawData.imageUrl || ''
+        currency: rawData.currency || 'SAR',
+
+        // Vendor information
+        vendor: {
+          name: rawData.vendor?.name || rawData.merchantName || 'Unknown',
+          address: rawData.vendor?.address || rawData.address || 'Unknown',
+          phone: rawData.vendor?.phone || rawData.phone || 'Unknown',
+          logo: rawData.vendor?.logo || ''
+        },
+
+        // Line items
+        line_items: itemsProperties || [],
+
+        // Payment information
+        payment: rawData.payment || { type: 'Unknown' },
+
+        // Other fields
+        createdTime: rawData.createdTime
+          ? typeof rawData.createdTime.toDate === 'function'
+            ? rawData.createdTime.toDate()
+            : new Date(rawData.createdTime)
+          : new Date(), // Handle different timestamp formats
+        imageUrl: rawData.imageUrl || rawData.receipt_image || '',
+        user_id: rawData.user_id || ''
       };
 
-      receipts.push(safeReceipt);
+      processedReceipts.push(safeReceipt);
     });
+    // sorting doesnt work, will need it added as filtering default later
+    // Sort by createdTime descending (newest first)
+    processedReceipts.sort((a, b) => {
+      const dateA = a.createdTime instanceof Date ? a.createdTime : new Date(a.createdTime || 0);
+      const dateB = b.createdTime instanceof Date ? b.createdTime : new Date(b.createdTime || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // Assign sorted receipts to state
+    receipts.push(...processedReceipts);
+
+    console.log(`Loaded ${receipts.length} receipts from Firestore`);
   } catch (err) {
     console.log(err, 'receipt fetch failed');
   }
