@@ -281,7 +281,6 @@
           bind:value={userInput}
           placeholder="Type your message..."
           on:keydown={handleKeyDown}
-          disabled={isLoading}
           class="flex-grow"
         />
         <Button
