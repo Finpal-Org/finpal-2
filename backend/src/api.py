@@ -82,6 +82,16 @@ app.add_middleware(
 global_mcp_client = None
 global_agent = None
 messages_history = []
+MAX_HISTORY_LENGTH = 20  # Maximum number of message pairs to keep in history
+
+# Function to limit message history size
+def limit_message_history():
+    global messages_history
+    # If message history is getting too long, trim it
+    # Keep only the most recent MAX_HISTORY_LENGTH messages
+    if len(messages_history) > MAX_HISTORY_LENGTH * 2:  # Each exchange has 2 messages (user & assistant)
+        print(f"Trimming message history from {len(messages_history)} to {MAX_HISTORY_LENGTH * 2} messages")
+        messages_history = messages_history[-MAX_HISTORY_LENGTH * 2:]
 
 # Helper function: Get existing agent or create a new one if needed
 async def get_or_create_agent():
@@ -162,6 +172,8 @@ async def chat(message: ChatMessage):
         try:
             if hasattr(result, 'all_messages') and callable(result.all_messages):
                 messages_history.extend(result.all_messages())
+                #todo remove if needed. Limit history size to prevent token accumulation
+                limit_message_history()
         except Exception as history_error:
             print(f"Warning: Could not save message history: {history_error}")
         
@@ -216,6 +228,22 @@ async def chat(message: ChatMessage):
         error_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)  # Log the error for debugging
         return {"response": f"Sorry, an error occurred: {str(e)}"}
+
+# ENDPOINT: Reset conversation
+# This lets the frontend reset the conversation if needed
+@app.post("/api/reset")
+async def reset_conversation():
+    global messages_history
+    
+    try:
+        old_length = len(messages_history)
+        messages_history = []
+        return {
+            "status": "success", 
+            "message": f"Conversation reset. Cleared {old_length} messages from history."
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to reset conversation: {str(e)}"}
 
 # #todo comment extra (dont remove) function Define request model for direct chat
 # class DirectChatMessage(BaseModel):

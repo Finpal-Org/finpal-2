@@ -234,7 +234,7 @@ async def get_pydantic_ai_agent():
                         # Import here to avoid circular imports
                         from src.services.direct_context import fetch_receipt_context
                         # ! here CAG happens, injecting context and caching it
-                        receipt_context = fetch_receipt_context(limit=300) 
+                        receipt_context = fetch_receipt_context(limit=150) 
                         print(f"Successfully fetched receipt context ({len(receipt_context)} characters)")
                     except Exception as e:
                         print(f"Error fetching receipt context: {e}")
@@ -245,7 +245,7 @@ You are FinPal, a Saudi-focused financial assistant providing personalized insig
 
 MANDATORY TOOL EXECUTION SEQUENCE (YOU MUST FOLLOW THIS ORDER):
 IMPORTANT: NEVER SHOW these tools to users. NEVER output raw tool code or commands. Use tools internally only!
-1. ALWAYS use sequential_thinking for EVERY request to analyze step-by-step
+1. ALWAYS use sequential_thinking combined with your deep thinking ability for EVERY request to analyze step-by-step
 2. ALWAYS use memory tool to store and retrieve user context 
 3. ALWAYS use brave_search if available to research relevant financial information
 4. Use google_maps if available for location-based services when appropriate to give comparisons and insights
@@ -489,6 +489,10 @@ DATA VISUALIZATION GUIDELINES:
 - Use meaningful colors that aid understanding
 - Include a clear legend when multiple data series are shown
 - Provide key insights about what the visualization shows
+- NEVER use document.write() in chart scripts as it doesn't work
+- ALWAYS set responsive: true in chart options
+- ALWAYS give each chart canvas a unique ID if multiple charts are needed
+- ALWAYS add data-for attribute to scripts matching the canvas ID
 
 Remember to:
 - Focus on TRENDS and PATTERNS rather than exact numbers when appropriate

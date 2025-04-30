@@ -128,8 +128,9 @@ def fetch_receipt_context(limit: int = 300, force_refresh: bool = False) -> str:
     Uses caching to avoid unnecessary database calls.
     
     Args:
-        limit: Maximum number of receipts to retrieve (default: 100)
+        limit: Maximum number of receipts to retrieve (default: 300)
         force_refresh: Force refresh the cache even if not expired
+
         
     Returns:
         str: Raw receipt data formatted as text

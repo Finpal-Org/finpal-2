@@ -167,6 +167,35 @@ export class MCPClient {
   }
 
   /**
+   * Reset the conversation history on the backend
+   * Call this when starting a new conversation or if token limit errors occur
+   */
+  async resetConversation(): Promise<{ status: string; message: string }> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Reset request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Conversation reset:', data.message);
+      return data;
+    } catch (error) {
+      console.error('Error resetting conversation:', error);
+      return {
+        status: 'error',
+        message: `Failed to reset conversation: ${(error as Error).message}`
+      };
+    }
+  }
+
+  /**
    * Fetch available tools from the backend
    */
   private async fetchTools(): Promise<void> {

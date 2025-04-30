@@ -58,7 +58,6 @@
   let messages: Array<{ role: 'user' | 'assistant'; content: any; thinking?: string }> = [
     {
       role: 'assistant',
-      // todo make sure this only displays if backend is out
       content: 'Connecting to Backend.. will take a minute..'
     }
   ];
@@ -66,8 +65,71 @@
   // State variables for managing user input and loading state
   let userInput = '';
   let isLoading = false;
-  let rawResponse = ''; // Store raw response for debugging
   let isThinking = false;
+
+  // Simple function to initialize charts after content is added to DOM
+  function enableCharts() {
+    // Find all chart script tags and execute them
+    setTimeout(() => {
+      // Destroy any existing charts first to prevent "Canvas is already in use" errors
+      try {
+        // Check if Chart.js is available - need to use any type to avoid TypeScript errors
+        const ChartJS = (window as any).Chart;
+        if (ChartJS && document.getElementById('finpal-chart')) {
+          const existingChart = ChartJS.getChart('finpal-chart');
+          if (existingChart) {
+            existingChart.destroy();
+            console.log('Destroyed existing chart');
+          }
+        }
+      } catch (e) {
+        console.error('Error checking for existing charts:', e);
+      }
+
+      const chartScripts = document.querySelectorAll(
+        'script[data-chart="true"]:not([data-executed="true"])'
+      );
+      chartScripts.forEach((script) => {
+        try {
+          // Mark script as executed to prevent multiple executions
+          script.setAttribute('data-executed', 'true');
+          // Safe execution using Function constructor instead of eval
+          if (script.textContent) {
+            console.log('About to execute script:', script.textContent); // Debug
+            const executeScript = new Function(script.textContent);
+            executeScript();
+          }
+        } catch (error) {
+          console.error('Error executing chart script:', error);
+          console.log('Problem script content:', script.textContent); // Debug
+        }
+      });
+    }, 100);
+  }
+
+  // Simple HTML post-processor for chart data
+  function processHtml(html: string): string {
+    if (!html) return html;
+
+    // For chart data, take a simpler approach
+    if (html.includes('finpal-chart') && html.includes('<script>')) {
+      // Simply remove the DOMContentLoaded event listener and keep the rest
+      html = html.replace(
+        /document\.addEventListener\(['"]DOMContentLoaded['"],\s*function\s*\(\)\s*\{/g,
+        '// Direct initialization: '
+      );
+
+      // Also remove the closing part of the event listener
+      html = html.replace(/\}\s*\)\s*;(?=\s*<\/script>)/g, '');
+
+      // Add data-chart attribute to all scripts
+      html = html.replace(/<script>/g, '<script data-chart="true">');
+
+      console.log('Processed chart script');
+    }
+
+    return html;
+  }
 
   // Filter to separate tool usage (thinking) from actual response
   function sanitizeResponse(response: string): { content: string; thinking?: string } {
@@ -76,7 +138,7 @@
     // Check for tool command patterns
     const toolPatterns = [
       'tool_code',
-      'sequential_thinking.run',
+      'sequential_thinking',
       'memory_tool',
       'brave_search',
       'google_maps',
@@ -91,13 +153,15 @@
 
         if (htmlStartIndex !== -1) {
           const thinking = response.substring(0, htmlStartIndex).trim();
-          const content = response.substring(htmlStartIndex);
-          console.log('Detected thinking:', thinking);
+          let content = response.substring(htmlStartIndex);
+
+          // Process content for charts
+          content = processHtml(content);
+
           return { content, thinking };
         }
 
         // If no HTML content is found, capture the tool command as thinking
-        // and provide a more specific response instead of generic fallback
         if (!response.includes('<')) {
           console.error(`Tool command detected in response:`, response);
           return {
@@ -108,7 +172,8 @@
       }
     }
 
-    return { content: response };
+    // Process content for charts even if no thinking was detected
+    return { content: processHtml(response) };
   }
 
   // Send a message to the AI service
@@ -146,11 +211,52 @@
       // Store raw response for debug purposes
       rawResponse = JSON.stringify(response, null, 2);
 
+      // Check for token limit error
+      if (
+        typeof response === 'string' &&
+        (response.includes('token count exceeds') ||
+          response.includes('token limit') ||
+          response.includes('exceeds the maximum number of tokens'))
+      ) {
+        console.error('Token limit exceeded. Resetting conversation...');
+
+        // Add an error message for the user
+        messages = [
+          ...messages,
+          {
+            role: 'assistant',
+            content:
+              "I'm sorry, but I've hit a technical limit with the conversation size. Let me reset our chat to continue helping you."
+          }
+        ];
+
+        // Reset the conversation on the backend
+        const resetResult = await apiClient.resetConversation();
+        console.log('Conversation reset result:', resetResult);
+
+        // Tell the user what happened
+        messages = [
+          ...messages,
+          {
+            role: 'assistant',
+            content:
+              "I've reset our conversation. You can continue asking questions and I'll remember only this most recent context. What would you like to know?"
+          }
+        ];
+
+        isThinking = false;
+        isLoading = false;
+        return;
+      }
+
       // Separate thinking from actual response
       const { content, thinking } = sanitizeResponse(response);
 
       // Add AI response to the chat
       messages = [...messages, { role: 'assistant', content, thinking }];
+
+      // Initialize any charts in the response
+      enableCharts();
 
       isThinking = false;
     } catch (error) {
@@ -179,6 +285,9 @@
     showDebugInfo = !showDebugInfo;
   }
 
+  // For debug purposes
+  let rawResponse = '';
+
   // Connect to the backend when the component loads
   onMount(() => {
     initConnection();
@@ -187,7 +296,7 @@
 
 <svelte:head>
   <!-- Load Chart.js for visualizations -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="/scripts/chart.min.js"></script>
 </svelte:head>
 
 <div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-2xl flex-col px-4 py-8">
@@ -378,6 +487,11 @@
 
 <style>
   :global(#finpal-chart) {
+    width: 100% !important;
+    height: 300px !important;
+  }
+
+  :global(canvas[id^='finpal-chart']) {
     width: 100% !important;
     height: 300px !important;
   }
