@@ -168,24 +168,25 @@ export class MCPClient {
    */
   async sendDirectContextMessage(
     message: string,
-    model: string = 'gemini-2.0-flash'
+    model: string = 'gemini-2.0-flash' //todo change to 2.5-pro
   ): Promise<string> {
     try {
-      // Construct the request URL
-      const url = `${this.apiUrl}/api/direct_chat`;
+      // Now using the main chat endpoint instead of direct_chat
+      // Since receipt context is now built into the agent's system prompt
+      const url = `${this.apiUrl}/api/chat`;
 
-      // Send the request with message and model
+      // Send the request with message
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ message, model })
+        body: JSON.stringify({ message })
       });
 
       // Check if the request was successful
       if (!response.ok) {
-        throw new Error(`Direct chat request failed with status ${response.status}`);
+        throw new Error(`Chat request failed with status ${response.status}`);
       }
 
       // Parse the response

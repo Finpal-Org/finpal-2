@@ -218,7 +218,7 @@ async def chat(message: ChatMessage):
         print(error_msg)  # Log the error for debugging
         return {"response": f"Sorry, an error occurred: {str(e)}"}
 
-# #todo comment extra function Define request model for direct chat
+# #todo comment extra (dont remove) function Define request model for direct chat
 # class DirectChatMessage(BaseModel):
 #     message: str
 #     model: str = "gemini-2.5-pro"  # Default model, can be overridden
