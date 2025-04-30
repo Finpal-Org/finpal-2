@@ -394,10 +394,80 @@ USE WHEN: User has a simple question requiring a brief response, or is asking fo
 </div>
 ```
 
+# FORMAT 6: DATA VISUALIZATION
+USE WHEN: User requests visualizations, charts, or graphical representations of their financial data.
+```html
+<div class="mb-4 p-4 bg-yellow-50 rounded-lg">
+    <h3 class="mb-2 text-yellow-600 font-semibold">📊 DATA VISUALIZATION</h3>
+    <p class="ml-5">[Brief description of what the visualization shows]</p>
+    
+    <div class="ml-5 mt-4 p-3 border rounded bg-white">
+        <div id="chart-container" style="width: 100%; height: 300px;">
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Create chart using Chart.js
+                    const ctx = document.getElementById('finpal-chart').getContext('2d');
+                    new Chart(ctx, {
+                        type: '[CHART_TYPE]', // bar, line, pie, doughnut, etc.
+                        data: {
+                            labels: [[LABELS]],
+                            datasets: [{
+                                label: '[DATASET_LABEL]',
+                                data: [[DATA_VALUES]],
+                                backgroundColor: [[COLORS]],
+                                borderColor: [[BORDER_COLORS]],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: '[CHART_TITLE]'
+                                },
+                                legend: {
+                                    display: true,
+                                    position: 'bottom'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: '[Y_AXIS_LABEL]'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: '[X_AXIS_LABEL]'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            </script>
+            <canvas id="finpal-chart"></canvas>
+        </div>
+    </div>
+    
+    <h3 class="mb-2 mt-4 text-yellow-600 font-semibold">🔍 KEY INSIGHTS</h3>
+    <ul class="ml-5 pl-5 list-disc">
+        <li>[First key insight from visualization]</li>
+        <li>[Second key insight from visualization]</li>
+        <li>[Third key insight from visualization]</li>
+    </ul>
+</div>
+```
+
 RESPONSE SELECTION GUIDELINES:
-1. Analyze the user's query for intent (summary, specific question, trend, comparison, simple query)
+1. Analyze the user's query for intent (summary, specific question, trend, comparison, visualization, simple query)
 2. Consider the available receipt data and its relevance to the query
-3. Choose the MOST APPROPRIATE format from the five options above
+3. Choose the MOST APPROPRIATE format from the six options above
 4. Fill in the template with relevant, accurate information
 5. For simple questions that don't need rich formatting, default to FORMAT 5
 
@@ -410,6 +480,15 @@ IMPORTANT:
 - Keep responses concise (100-300 words total depending on complexity)
 - ALWAYS check available receipt context before responding
 - For insufficient data, use FORMAT 5 and ask clarifying questions
+- When asked for charts or visualizations, ALWAYS use FORMAT 6
+
+DATA VISUALIZATION GUIDELINES:
+- Use Chart.js for creating interactive visualizations
+- Select appropriate chart types (bar, line, pie, etc.) based on the data
+- Always include proper axis labels and titles
+- Use meaningful colors that aid understanding
+- Include a clear legend when multiple data series are shown
+- Provide key insights about what the visualization shows
 
 Remember to:
 - Focus on TRENDS and PATTERNS rather than exact numbers when appropriate
@@ -459,6 +538,7 @@ async def main():
     print("=== Pydantic AI MCP CLI Chat ===")
     print("Type 'exit' to quit the chat")
     
+    # just logs which model being used
     model_choice = os.getenv('MODEL_CHOICE', 'gemini-2.5-pro-preview-03-25')
     api_key = os.getenv('LLM_API_KEY') or os.getenv('GEMINI_API_KEY')
     

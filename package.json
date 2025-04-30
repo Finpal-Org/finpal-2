@@ -43,6 +43,7 @@
     "@modelcontextprotocol/server-google-maps": "^0.6.2",
     "@modelcontextprotocol/server-sequential-thinking": "^0.6.2",
     "@pinecone-database/pinecone": "^5.1.1",
+    "chart.js": "^4.4.9",
     "deepseek-mcp-server": "^0.2.1",
     "dotenv": "^16.4.7",
     "financial-mcp-server": "github:kablewy/financial-analysis-mcp-server",

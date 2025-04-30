@@ -34,6 +34,10 @@
         // Get available tools for debugging
         availableTools = apiClient.getTools();
         console.log('Available tools:', availableTools);
+
+        // Update welcome message when connected
+        messages[0].content =
+          "Hello! I'm FinChat, your finance assistant 💸. How can I help you today?";
       } else {
         throw new Error('Failed to connect to AI service');
       }
@@ -51,12 +55,11 @@
   }
 
   // Initialize chat state with a welcome message
-  let messages: Array<{ role: 'user' | 'assistant'; content: any }> = [
+  let messages: Array<{ role: 'user' | 'assistant'; content: any; thinking?: string }> = [
     {
       role: 'assistant',
-      content: isConnected
-        ? "Hello! I'm FinChat, your finance assistant. How can I help you today?"
-        : 'Connecting to Backend.. will take a minute..'
+      // todo make sure this only displays if backend is out
+      content: 'Connecting to Backend.. will take a minute..'
     }
   ];
 
@@ -64,12 +67,13 @@
   let userInput = '';
   let isLoading = false;
   let rawResponse = ''; // Store raw response for debugging
+  let isThinking = false;
 
-  // Filter to catch and clean up any tool commands in responses
-  function sanitizeResponse(response: string): string {
-    if (typeof response !== 'string') return response;
+  // Filter to separate tool usage (thinking) from actual response
+  function sanitizeResponse(response: string): { content: string; thinking?: string } {
+    if (typeof response !== 'string') return { content: response };
 
-    // Check for tool commands and error patterns
+    // Check for tool command patterns
     const toolPatterns = [
       'tool_code',
       'sequential_thinking.run',
@@ -79,14 +83,32 @@
       'yfinance'
     ];
 
+    // Extract thinking process if tool commands are detected
     for (const pattern of toolPatterns) {
       if (response.includes(pattern)) {
-        console.error(`Tool command "${pattern}" detected in response:`, response);
-        return "I'm analyzing your financial information. Please ask me a specific question about your receipts or spending habits.";
+        // Get everything before the first HTML tag as "thinking"
+        const htmlStartIndex = response.indexOf('<div');
+
+        if (htmlStartIndex !== -1) {
+          const thinking = response.substring(0, htmlStartIndex).trim();
+          const content = response.substring(htmlStartIndex);
+          console.log('Detected thinking:', thinking);
+          return { content, thinking };
+        }
+
+        // If no HTML content is found, capture the tool command as thinking
+        // and provide a more specific response instead of generic fallback
+        if (!response.includes('<')) {
+          console.error(`Tool command detected in response:`, response);
+          return {
+            content: "I'm analyzing your data to answer your question. Please give me a moment...",
+            thinking: response
+          };
+        }
       }
     }
 
-    return response;
+    return { content: response };
   }
 
   // Send a message to the AI service
@@ -112,6 +134,7 @@
     try {
       const messageToSend = userInput.trim();
       isLoading = true;
+      isThinking = true;
 
       // Add user message to the chat
       messages = [...messages, { role: 'user', content: messageToSend }];
@@ -123,11 +146,13 @@
       // Store raw response for debug purposes
       rawResponse = JSON.stringify(response, null, 2);
 
-      // Sanitize response to catch any tool commands that slipped through
-      const cleanResponse = sanitizeResponse(response);
+      // Separate thinking from actual response
+      const { content, thinking } = sanitizeResponse(response);
 
       // Add AI response to the chat
-      messages = [...messages, { role: 'assistant', content: cleanResponse }];
+      messages = [...messages, { role: 'assistant', content, thinking }];
+
+      isThinking = false;
     } catch (error) {
       console.error('Error processing message:', error);
       messages = [
@@ -135,6 +160,7 @@
         { role: 'assistant', content: 'Sorry, I encountered an error processing your request.' }
       ];
       rawResponse = JSON.stringify(error, null, 2);
+      isThinking = false;
     } finally {
       isLoading = false;
     }
@@ -158,6 +184,11 @@
     initConnection();
   });
 </script>
+
+<svelte:head>
+  <!-- Load Chart.js for visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</svelte:head>
 
 <div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-2xl flex-col px-4 py-8">
   <Card class="flex h-full flex-col border-0 shadow-lg">
@@ -219,7 +250,7 @@
     <CardContent class="flex-grow overflow-hidden p-4">
       <ScrollArea class="h-full pr-4">
         <div class="flex flex-col gap-3">
-          {#each messages as message}
+          {#each messages as message, messageIndex (messageIndex)}
             <div class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
                 class={`flex max-w-[85%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
@@ -234,20 +265,67 @@
                     <Bot class="h-3.5 w-3.5" />
                   {/if}
                 </div>
-                <div
-                  class={`rounded-lg p-3 text-sm ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-foreground'
-                  }`}
-                >
-                  {@html message.content}
+                <div class="flex flex-col gap-2">
+                  <!-- Show thinking bubble if available -->
+                  {#if message.role === 'assistant' && message.thinking}
+                    <div
+                      class="rounded-lg border-l-4 border-green-400 bg-gray-200 p-3 text-xs text-gray-600"
+                    >
+                      <details>
+                        <summary class="cursor-pointer font-medium"
+                          >Show AI thinking process...</summary
+                        >
+                        <pre class="mt-2 whitespace-pre-wrap">{message.thinking}</pre>
+                      </details>
+                    </div>
+                  {/if}
+
+                  <!-- Main message content -->
+                  <div
+                    class={`rounded-lg p-3 text-sm ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
+                    }`}
+                  >
+                    {@html message.content}
+                  </div>
                 </div>
               </div>
             </div>
           {/each}
 
-          {#if isLoading}
+          {#if isLoading && isThinking}
+            <div class="flex justify-start">
+              <div class="flex max-w-[85%] gap-2">
+                <div
+                  class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted"
+                >
+                  <Bot class="h-3.5 w-3.5" />
+                </div>
+                <div
+                  class="rounded-lg border-l-4 border-green-400 bg-gray-200 p-3 text-xs text-gray-600"
+                >
+                  <div class="flex items-center gap-2">
+                    <span>AI thinking...</span>
+                    <div class="flex gap-1">
+                      <div class="h-1.5 w-1.5 animate-bounce rounded-full bg-green-500"></div>
+                      <div
+                        class="h-1.5 w-1.5 animate-bounce rounded-full bg-green-500"
+                        style="animation-delay: 150ms"
+                      ></div>
+                      <div
+                        class="h-1.5 w-1.5 animate-bounce rounded-full bg-green-500"
+                        style="animation-delay: 300ms"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          {#if isLoading && !isThinking}
             <div class="flex justify-start">
               <div class="flex max-w-[85%] gap-2">
                 <div
@@ -298,4 +376,9 @@
   </Card>
 </div>
 
-<style></style>
+<style>
+  :global(#finpal-chart) {
+    width: 100% !important;
+    height: 300px !important;
+  }
+</style>
