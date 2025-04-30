@@ -197,7 +197,7 @@ async def chat(message: ChatMessage):
 # Define request model for direct chat
 class DirectChatMessage(BaseModel):
     message: str
-    model: str = "gemini-2.0-flash"  # Default model, can be overridden
+    model: str = "gemini-2.5-pro"  # Default model, can be overridden
 
 # ENDPOINT 5: Direct context chat using raw receipt data
 # This endpoint provides a direct way to query receipt data with simpler caching
@@ -218,18 +218,29 @@ async def direct_chat(message: DirectChatMessage):
             }
 
         # Fetch raw receipt data from Firestore (will use cache if available)
-        receipt_context = fetch_receipt_context(limit=100)
+        receipt_context = fetch_receipt_context(limit=300)
         
-        # ! important Create a prompt that includes both receipt data and the user's question, But use the agent to process it for consistent response formatting
-        prompt = f"I'm going to give you receipt data followed by a question. Receipt data: {receipt_context}. Question: {message.message}"
+        # Get the agent's system prompt instead of creating a custom one
+        # This ensures the same formatting and style is used across all endpoints
+        system_prompt = ""
+        if hasattr(agent, 'system_prompt_func'):
+            system_prompt = agent.system_prompt_func()
+        else:
+            # Fallback system instruction if system_prompt_func isn't available
+            system_prompt = """
+            You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis.
+            NEVER show raw tool commands in your response.
+            Format your responses with INSIGHT, RECOMMENDATIONS, BREAKDOWN, and NEXT STEPS sections.
+            """
         
-        # Use the pydantic agent so we get consistent formatting
+        # Build prompt with system prompt and receipt context
+        prompt = f"Using the following system instructions: {system_prompt}\n\nReceipt data: {receipt_context}\n\nUser question: {message.message}"
+        
+        # Use the pydantic agent for consistent formatting
         result = await agent.run(prompt)
         
-        # Get the response content from the result
+        # Extract response from result
         response_text = ""
-        
-        # Check the structure of the result to determine how to extract the response
         if hasattr(result, 'data'):
             response_text = result.data
         elif hasattr(result, 'text'):
@@ -239,25 +250,23 @@ async def direct_chat(message: DirectChatMessage):
         elif hasattr(result, 'response'):
             response_text = result.response
         else:
-            # Fallback to string representation
             print(f"Couldn't extract text directly. Result object: {result}")
             response_text = str(result)
         
-        # Clean up the response to remove any markdown code fences
+        # Clean up response
         if isinstance(response_text, str):
-            # Remove markdown code fences if present
+            # Remove tool command artifacts if they managed to slip through
+            if "tool_code" in response_text or "sequential_thinking.run" in response_text:
+                response_text = "I'm analyzing your receipts to provide insights. Please ask me a specific question about your spending or receipts."
+            
+            # Remove markdown code fences
             if response_text.startswith("```html"):
                 response_text = response_text.replace("```html", "", 1)
                 if response_text.endswith("```"):
                     response_text = response_text[:-3]
             
-            # Remove any other code fence markers
-            response_text = response_text.replace("```", "")
-            
-            # Trim whitespace
-            response_text = response_text.strip()
+            response_text = response_text.replace("```", "").strip()
         
-        # Return the response
         return {"response": response_text}
         
     except Exception as e:

@@ -190,7 +190,23 @@ export class MCPClient {
 
       // Parse the response
       const data = await response.json();
-      return data.response;
+      let responseText = data.response;
+
+      // Safety check: Filter out any tool command artifacts that might slip through
+      if (typeof responseText === 'string') {
+        if (
+          responseText.includes('tool_code') ||
+          responseText.includes('sequential_thinking.run') ||
+          responseText.includes('memory_tool') ||
+          responseText.includes('brave_search')
+        ) {
+          console.error('Tool command detected in response:', responseText);
+          responseText =
+            "I'm analyzing your information to provide insights. Please ask me a specific question about your finances or receipts.";
+        }
+      }
+
+      return responseText;
     } catch (error) {
       console.error('Error sending direct chat message:', error);
       throw error;

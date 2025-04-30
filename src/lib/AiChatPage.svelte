@@ -65,6 +65,30 @@
   let isLoading = false;
   let rawResponse = ''; // Store raw response for debugging
 
+  // Filter to catch and clean up any tool commands in responses
+  function sanitizeResponse(response: string): string {
+    if (typeof response !== 'string') return response;
+
+    // Check for tool commands and error patterns
+    const toolPatterns = [
+      'tool_code',
+      'sequential_thinking.run',
+      'memory_tool',
+      'brave_search',
+      'google_maps',
+      'yfinance'
+    ];
+
+    for (const pattern of toolPatterns) {
+      if (response.includes(pattern)) {
+        console.error(`Tool command "${pattern}" detected in response:`, response);
+        return "I'm analyzing your financial information. Please ask me a specific question about your receipts or spending habits.";
+      }
+    }
+
+    return response;
+  }
+
   // Send a message to the AI service
   async function handleSendMessage() {
     // Don't send empty messages
@@ -93,16 +117,17 @@
       messages = [...messages, { role: 'user', content: messageToSend }];
       userInput = '';
 
-      // // Send to backend and get response
-      // const response = await apiClient.processQuery(messageToSend);
-      // Send to direct context endpoint instead of regular query processing
+      // Send to direct context endpoint
       const response = await apiClient.sendDirectContextMessage(messageToSend);
 
       // Store raw response for debug purposes
       rawResponse = JSON.stringify(response, null, 2);
 
+      // Sanitize response to catch any tool commands that slipped through
+      const cleanResponse = sanitizeResponse(response);
+
       // Add AI response to the chat
-      messages = [...messages, { role: 'assistant', content: response }];
+      messages = [...messages, { role: 'assistant', content: cleanResponse }];
     } catch (error) {
       console.error('Error processing message:', error);
       messages = [
