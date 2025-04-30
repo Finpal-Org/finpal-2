@@ -229,7 +229,18 @@ async def get_pydantic_ai_agent():
                 # Add FinPal system prompt as a dynamic decorator
                 @agent.system_prompt(dynamic=True)
                 def finpal_system_prompt():
-                    return """
+                    # Try to get receipt context if available
+                    try:
+                        # Import here to avoid circular imports
+                        from src.services.direct_context import fetch_receipt_context
+                        # ! here CAG happens, injecting context and caching it
+                        receipt_context = fetch_receipt_context(limit=300) 
+                        print(f"Successfully fetched receipt context ({len(receipt_context)} characters)")
+                    except Exception as e:
+                        print(f"Error fetching receipt context: {e}")
+                        receipt_context = "No receipt data available."
+                    
+                    base_prompt = """
 You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis and financial data.
 
 MANDATORY TOOL EXECUTION SEQUENCE (YOU MUST FOLLOW THIS ORDER):
@@ -292,6 +303,9 @@ Remember to:
 - Balance receipt-specific analysis with broader financial wisdom
 - Respond directly to what the user is asking about
 """
+                    # Add receipt context to the prompt - this is essential!
+                    return base_prompt + f"\n\nUSER RECEIPT CONTEXT:\n{receipt_context}"
+                
                 print("Added FinPal system prompt with HTML formatting, tool sequencing, and conversational guidance")
                 
                 # Verify tools were correctly set

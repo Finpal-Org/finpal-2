@@ -10,6 +10,12 @@ import pathlib
 import logging
 import json
 from dotenv import load_dotenv
+import time
+import re
+import traceback
+import uuid
+from datetime import datetime
+from typing import List, Optional, Dict, Any
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -143,9 +149,15 @@ async def chat(message: ChatMessage):
         # Get our AI agent
         agent = await get_or_create_agent()
         
+        # Log the request
+        print(f"Processing chat request: {message.message}")
+        
         # Process the message with the AI agent
         # We pass message_history so the AI remembers previous conversation
+        start_time = time.time()
         result = await agent.run(message.message, message_history=messages_history)
+        processing_time = time.time() - start_time
+        print(f"Agent processed message in {processing_time:.2f} seconds")
         
         # Safely save conversation history - handle case if all_messages() doesn't exist
         try:
@@ -183,6 +195,18 @@ async def chat(message: ChatMessage):
             # Remove any other code fence markers
             response_text = response_text.replace("```", "")
             
+            # Clean up tool command artifacts
+            patterns = [
+                r'sequential_thinking\.run\(.*?\)',
+                r'memory_tool\..*?\(',
+                r'brave_search\..*?\(',
+                r'google_maps\..*?\(',
+                r'yfinance\..*?\('
+            ]
+            
+            for pattern in patterns:
+                response_text = re.sub(pattern, "", response_text, flags=re.DOTALL)
+            
             # Trim whitespace
             response_text = response_text.strip()
         
@@ -194,84 +218,84 @@ async def chat(message: ChatMessage):
         print(error_msg)  # Log the error for debugging
         return {"response": f"Sorry, an error occurred: {str(e)}"}
 
-# Define request model for direct chat
-class DirectChatMessage(BaseModel):
-    message: str
-    model: str = "gemini-2.5-pro"  # Default model, can be overridden
+# #todo comment extra function Define request model for direct chat
+# class DirectChatMessage(BaseModel):
+#     message: str
+#     model: str = "gemini-2.5-pro"  # Default model, can be overridden
 
-# ENDPOINT 5: Direct context chat using raw receipt data
-# This endpoint provides a direct way to query receipt data with simpler caching
-@app.post("/api/direct_chat")
-async def direct_chat(message: DirectChatMessage):
-    try:
-        # Check if we can fetch receipt context
-        if fetch_receipt_context is None:
-            return {
-                "response": "Direct chat is currently unavailable. The receipt context service is not available."
-            }
+# # ENDPOINT 5: Direct context chat using raw receipt data
+# # This endpoint provides a direct way to query receipt data with simpler caching
+# @app.post("/api/direct_chat")
+# async def direct_chat(message: DirectChatMessage):
+#     try:
+#         # Check if we can fetch receipt context
+#         if fetch_receipt_context is None:
+#             return {
+#                 "response": "Direct chat is currently unavailable. The receipt context service is not available."
+#             }
         
-        # Get the agent for formatting consistency
-        agent = await get_or_create_agent()
-        if agent is None:
-            return {
-                "response": "Direct chat is currently unavailable. Agent initialization failed."
-            }
+#         # Get the agent for formatting consistency
+#         agent = await get_or_create_agent()
+#         if agent is None:
+#             return {
+#                 "response": "Direct chat is currently unavailable. Agent initialization failed."
+#             }
 
-        # Fetch raw receipt data from Firestore (will use cache if available)
-        receipt_context = fetch_receipt_context(limit=300)
+#         # Fetch raw receipt data from Firestore (will use cache if available)
+#         receipt_context = fetch_receipt_context(limit=300)
         
-        # Get the agent's system prompt instead of creating a custom one
-        # This ensures the same formatting and style is used across all endpoints
-        system_prompt = ""
-        if hasattr(agent, 'system_prompt_func'):
-            system_prompt = agent.system_prompt_func()
-        else:
-            # Fallback system instruction if system_prompt_func isn't available
-            system_prompt = """
-            You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis.
-            NEVER show raw tool commands in your response.
-            Format your responses with INSIGHT, RECOMMENDATIONS, BREAKDOWN, and NEXT STEPS sections.
-            """
+#         # Get the agent's system prompt instead of creating a custom one
+#         # This ensures the same formatting and style is used across all endpoints
+#         system_prompt = ""
+#         if hasattr(agent, 'system_prompt_func'):
+#             system_prompt = agent.system_prompt_func()
+#         else:
+#             # Fallback system instruction if system_prompt_func isn't available
+#             system_prompt = """
+#             You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis.
+#             NEVER show raw tool commands in your response.
+#             Format your responses with INSIGHT, RECOMMENDATIONS, BREAKDOWN, and NEXT STEPS sections.
+#             """
         
-        # Build prompt with system prompt and receipt context
-        prompt = f"Using the following system instructions: {system_prompt}\n\nReceipt data: {receipt_context}\n\nUser question: {message.message}"
+#         # Build prompt with system prompt and receipt context
+#         prompt = f"Using the following system instructions: {system_prompt}\n\nReceipt data: {receipt_context}\n\nUser question: {message.message}"
         
-        # Use the pydantic agent for consistent formatting
-        result = await agent.run(prompt)
+#         # Use the pydantic agent for consistent formatting
+#         result = await agent.run(prompt)
         
-        # Extract response from result
-        response_text = ""
-        if hasattr(result, 'data'):
-            response_text = result.data
-        elif hasattr(result, 'text'):
-            response_text = result.text
-        elif hasattr(result, 'content'):
-            response_text = result.content
-        elif hasattr(result, 'response'):
-            response_text = result.response
-        else:
-            print(f"Couldn't extract text directly. Result object: {result}")
-            response_text = str(result)
+#         # Extract response from result
+#         response_text = ""
+#         if hasattr(result, 'data'):
+#             response_text = result.data
+#         elif hasattr(result, 'text'):
+#             response_text = result.text
+#         elif hasattr(result, 'content'):
+#             response_text = result.content
+#         elif hasattr(result, 'response'):
+#             response_text = result.response
+#         else:
+#             print(f"Couldn't extract text directly. Result object: {result}")
+#             response_text = str(result)
         
-        # Clean up response
-        if isinstance(response_text, str):
-            # Remove tool command artifacts if they managed to slip through
-            if "tool_code" in response_text or "sequential_thinking.run" in response_text:
-                response_text = "I'm analyzing your receipts to provide insights. Please ask me a specific question about your spending or receipts."
+#         # Clean up response
+#         if isinstance(response_text, str):
+#             # Remove tool command artifacts if they managed to slip through
+#             if "tool_code" in response_text or "sequential_thinking.run" in response_text:
+#                 response_text = "I'm analyzing your receipts to provide insights. Please ask me a specific question about your spending or receipts."
             
-            # Remove markdown code fences
-            if response_text.startswith("```html"):
-                response_text = response_text.replace("```html", "", 1)
-                if response_text.endswith("```"):
-                    response_text = response_text[:-3]
+#             # Remove markdown code fences
+#             if response_text.startswith("```html"):
+#                 response_text = response_text.replace("```html", "", 1)
+#                 if response_text.endswith("```"):
+#                     response_text = response_text[:-3]
             
-            response_text = response_text.replace("```", "").strip()
+#             response_text = response_text.replace("```", "").strip()
         
-        return {"response": response_text}
+#         return {"response": response_text}
         
-    except Exception as e:
-        logger.error(f"Error in direct chat: {str(e)}")
-        return {"response": f"Sorry, an error occurred: {str(e)}"}
+#     except Exception as e:
+#         logger.error(f"Error in direct chat: {str(e)}")
+#         return {"response": f"Sorry, an error occurred: {str(e)}"}
 
 # Cleanup handler for when the server shuts down
 @app.on_event("shutdown")

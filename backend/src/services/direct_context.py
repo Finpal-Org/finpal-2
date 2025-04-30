@@ -122,7 +122,7 @@ def check_for_updates() -> bool:
         # On error, assume update needed
         return True
 
-def fetch_receipt_context(limit: int = 100, force_refresh: bool = False) -> str:
+def fetch_receipt_context(limit: int = 300, force_refresh: bool = False) -> str:
     """
     Fetch raw receipt data from Firestore for context feeding.
     Uses caching to avoid unnecessary database calls.
@@ -134,12 +134,13 @@ def fetch_receipt_context(limit: int = 100, force_refresh: bool = False) -> str:
     Returns:
         str: Raw receipt data formatted as text
     """
+    # here is receipt context cache for cag
     global _context_cache, _last_refresh_time
     
     try:
         # Check if we have a cached version and if it's still valid
         if not force_refresh and _context_cache is not None:
-            # Check if we need to update based on database changes
+            # Check if we need to update based on database changes in realtime
             if not check_for_updates():
                 logger.info("Using cached receipt context (no updates found)")
                 return _context_cache
