@@ -7,6 +7,7 @@ export const categoryMapping: Record<string, string> = {
   Hotel: 'Hotel',
   'Fuel&Energy': 'Fuel',
   Transportation: 'Travel',
+  'Transportation.CarRental': 'Car',
   Communication: 'Communication',
   Subscriptions: 'Subscriptions',
   Entertainment: 'Entertainment',
@@ -18,7 +19,20 @@ export const categoryMapping: Record<string, string> = {
 /**
  * List of standardized categories to use in dropdowns
  */
-export const standardCategories = Object.values(categoryMapping);
+export const standardCategories = [
+  'Meal',
+  'Supplies',
+  'Hotel',
+  'Fuel',
+  'Travel',
+  'Car',
+  'Communication',
+  'Subscriptions',
+  'Entertainment',
+  'Training',
+  'Health',
+  'Other'
+];
 
 export function standardizeCategory(rawCategory: string): string {
   if (!rawCategory) return 'Other';

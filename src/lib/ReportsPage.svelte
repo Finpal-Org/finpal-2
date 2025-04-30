@@ -13,6 +13,7 @@
   import { getReceipts, receipts } from '../../firebase/fireStore.svelte';
   import { onMount } from 'svelte';
   import { exportReceiptsToExcel, exportReceiptsByCategory } from './services/excelService';
+  import { categoryMapping, standardCategories } from './utils/categoryMapping';
 
   // Group by select component - using individual imports
   import {
@@ -34,16 +35,22 @@
 
   // Statistics state
   let totalReceipts = $derived(receipts.length);
+
+  // Standardize category values using categoryMapping
   let categories = $derived(
     receipts.reduce(
       (acc, receipt) => {
-        const category = receipt.category || 'Other';
-        acc[category] = (acc[category] || 0) + 1;
+        // Map the receipt category to a standard category or use 'Other'
+        const rawCategory = receipt.category || 'Other';
+        const standardCategory = categoryMapping[rawCategory] || rawCategory;
+
+        acc[standardCategory] = (acc[standardCategory] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>
     )
   );
+
   let totalAmount = $derived(
     receipts.reduce((sum, receipt) => {
       const total = receipt.total ? parseFloat(receipt.total.toString()) : 0;
@@ -51,15 +58,23 @@
     }, 0)
   );
 
-  // Filtered receipts based on selected category
+  // Map category for comparison to ensure consistent lookup
   let filteredReceipts = $derived(
     selectedCategory
-      ? receipts.filter((receipt) => (receipt.category || 'Other') === selectedCategory)
+      ? receipts.filter((receipt) => {
+          const rawCategory = receipt.category || 'Other';
+          const standardCategory = categoryMapping[rawCategory] || rawCategory;
+          return standardCategory === selectedCategory;
+        })
       : receipts
   );
 
-  // Unique categories for dropdown
-  let uniqueCategories = $derived(Object.keys(categories).sort());
+  // Unique categories for dropdown - use standardCategories as a base and add any additional
+  // categories that might exist in the receipts but not in the standard list
+  let uniqueCategories = $derived(
+    // Start with categories from receipts
+    [...new Set([...standardCategories, ...Object.keys(categories)])].sort()
+  );
 
   // Load receipts on mount
   onMount(async () => {
@@ -141,6 +156,12 @@
       receipts.length === 0 ||
       (selectedCategory !== null && filteredReceipts.length === 0)
     );
+  }
+
+  // Helper function to get standardized category for display
+  function getStandardCategory(category: string | undefined): string {
+    const rawCategory = category || 'Other';
+    return categoryMapping[rawCategory] || rawCategory;
   }
 </script>
 
@@ -226,7 +247,7 @@
                   {#each (selectedCategory ? filteredReceipts : receipts).slice(0, 5) as receipt, i}
                     <tr class="border-b hover:bg-muted/50">
                       <td class="px-4 py-2">{receipt.merchantName || 'Unknown'}</td>
-                      <td class="px-4 py-2">{receipt.category || 'Other'}</td>
+                      <td class="px-4 py-2">{getStandardCategory(receipt.category)}</td>
                       <td class="px-4 py-2">{receipt.date || 'Unknown'}</td>
                       <td class="px-4 py-2 text-right">{receipt.total || '0.00'}</td>
                     </tr>
@@ -261,7 +282,7 @@
           <CardContent class="space-y-4">
             <!-- File Name Input -->
             <div class="space-y-2">
-              <label for="file-name" class="text-sm font-medium">File Name</label>
+              <label for="file-name" class="text-sm font-medium">Save as File Name</label>
               <input
                 id="file-name"
                 type="text"

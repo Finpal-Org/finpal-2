@@ -108,9 +108,9 @@
                   >
                     <CardHeader class="flex flex-row justify-between gap-5">
                       <div class="flex flex-col gap-2">
-                        <CardTitle
-                          >{receipt.merchantName ? receipt?.merchantName : 'Merchant'}</CardTitle
-                        >
+                        <CardTitle>
+                          {receipt.vendor?.name || receipt.merchantName || 'Merchant'}
+                        </CardTitle>
                         <CardDescription>{receipt?.category || 'Other'}</CardDescription>
                       </div>
                       <div class="flex">
