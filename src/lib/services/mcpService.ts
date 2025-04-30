@@ -103,8 +103,12 @@ export class MCPClient {
 
   /**
    * Process a user message through the AI
+   * Handles all types of messages, including those previously sent to direct_chat
+   *
+   * @param query User message to process
+   * @returns AI response as string
    */
-  async processQuery(query: string): Promise<string> {
+  async processMessage(query: string): Promise<string> {
     if (!this.isConnected) {
       return 'Error: Not connected to the AI service. Please try again later.';
     }
@@ -119,15 +123,47 @@ export class MCPClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to process query: ${response.statusText}`);
+        throw new Error(`Chat request failed with status ${response.status}`);
       }
 
       const data = await response.json();
-      return data.response;
+      let responseText = data.response;
+
+      // Safety check: Filter out any tool command artifacts that might slip through
+      if (typeof responseText === 'string') {
+        if (
+          responseText.includes('tool_code') ||
+          responseText.includes('sequential_thinking.run') ||
+          responseText.includes('memory_tool') ||
+          responseText.includes('brave_search')
+        ) {
+          console.error('Tool command detected in response:', responseText);
+          responseText =
+            "I'm analyzing your information to provide insights. Please ask me a specific question about your finances or receipts.";
+        }
+      }
+
+      return responseText;
     } catch (error) {
-      console.error('Error processing query:', error);
+      console.error('Error processing message:', error);
       return `Error processing your request: ${(error as Error).message}`;
     }
+  }
+
+  /**
+   * Legacy method that now uses processMessage internally
+   * @deprecated Use processMessage instead
+   */
+  async processQuery(query: string): Promise<string> {
+    return this.processMessage(query);
+  }
+
+  /**
+   * Legacy method that now uses processMessage internally
+   * @deprecated Use processMessage instead
+   */
+  async sendDirectContextMessage(message: string): Promise<string> {
+    return this.processMessage(message);
   }
 
   /**
@@ -157,60 +193,5 @@ export class MCPClient {
    */
   getTools(): any[] {
     return this.tools;
-  }
-
-  /**
-   * Send a message to the direct chat endpoint that uses raw receipt context
-   *
-   * @param message User message to send
-   * @param model Optional Gemini model name to use
-   * @returns Response from the direct chat endpoint
-   */
-  async sendDirectContextMessage(
-    message: string,
-    model: string = 'gemini-2.0-flash' //todo change to 2.5-pro
-  ): Promise<string> {
-    try {
-      // Now using the main chat endpoint instead of direct_chat
-      // Since receipt context is now built into the agent's system prompt
-      const url = `${this.apiUrl}/api/chat`;
-
-      // Send the request with message
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message })
-      });
-
-      // Check if the request was successful
-      if (!response.ok) {
-        throw new Error(`Chat request failed with status ${response.status}`);
-      }
-
-      // Parse the response
-      const data = await response.json();
-      let responseText = data.response;
-
-      // Safety check: Filter out any tool command artifacts that might slip through
-      if (typeof responseText === 'string') {
-        if (
-          responseText.includes('tool_code') ||
-          responseText.includes('sequential_thinking.run') ||
-          responseText.includes('memory_tool') ||
-          responseText.includes('brave_search')
-        ) {
-          console.error('Tool command detected in response:', responseText);
-          responseText =
-            "I'm analyzing your information to provide insights. Please ask me a specific question about your finances or receipts.";
-        }
-      }
-
-      return responseText;
-    } catch (error) {
-      console.error('Error sending direct chat message:', error);
-      throw error;
-    }
   }
 }
