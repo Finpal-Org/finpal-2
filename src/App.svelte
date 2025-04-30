@@ -5,6 +5,8 @@
   import Receipt from './lib/ReceiptPage.svelte';
   import Auth from './lib/AuthPage.svelte';
   import AiChat from './lib/AiChatPage.svelte';
+  import ReportsPage from './lib/ReportsPage.svelte';
+  import Analysis from './lib/AnalysisPage.svelte';
   import Navbar from './lib/components/Navbar.svelte';
   import Router from 'svelte-spa-router';
   import { ModeWatcher, toggleMode } from 'mode-watcher';
@@ -31,6 +33,8 @@
     '/': isAuthenticated ? Home : Auth,
     '/receipts': isAuthenticated ? Receipt : Auth,
     '/aichat': isAuthenticated ? AiChat : Auth,
+    '/analysis': isAuthenticated ? Analysis : Auth,
+    '/reports': isAuthenticated ? ReportsPage : Auth,
     '/auth': Auth,
     '*': isAuthenticated ? Home : Auth
   };

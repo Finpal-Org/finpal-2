@@ -68,10 +68,10 @@
         <a href="/#/aichat" class="text-lg font-medium transition-colors hover:text-primary">
           AI Chat
         </a>
-        <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
+        <a href="/#/analysis" class="text-lg font-medium transition-colors hover:text-primary">
           Analysis
         </a>
-        <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
+        <a href="/#/reports" class="text-lg font-medium transition-colors hover:text-primary">
           Reports
         </a>
         <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
@@ -115,10 +115,10 @@
       <a href="/#/aichat" class="text-sm font-medium transition-colors hover:text-primary">
         AI Chat
       </a>
-      <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">
+      <a href="/#/analysis" class="text-sm font-medium transition-colors hover:text-primary">
         Analysis
       </a>
-      <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">
+      <a href="/#/reports" class="text-sm font-medium transition-colors hover:text-primary">
         Reports
       </a>
       <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">

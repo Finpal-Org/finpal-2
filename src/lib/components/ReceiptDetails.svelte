@@ -21,12 +21,6 @@
   // Add receipt prop
   export let receipt: ReceiptData;
 
-  console.log('Receipt data for debugging:', receipt);
-
-  // todo remove debug Check specific fields
-  console.log('CountryRegion:', receipt?.countryRegion);
-  console.log('TaxDetailsArray:', receipt?.taxDetailsArray);
-
   // State to manage custom days dialog
   let showCustomDaysDialog = false;
   let currentItemIndex = -1;

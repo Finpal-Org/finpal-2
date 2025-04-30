@@ -122,7 +122,7 @@ def extracted_result(result):
         document = documents[0]  # Get the document object (without fields)
 
         fields = documents[0].get("fields",{})
-
+#todo transportation (car) is Transportation.CarRental change it..
         # 1.Needed fields & mapping names (renaming azure's naming to our preffered naming)
         field_mapping = {
             #left is our name: right is azure's naming
