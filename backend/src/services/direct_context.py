@@ -9,6 +9,7 @@ import json
 import logging
 import time
 import tempfile
+import requests  # For timeout handling
 from typing import Dict, Any, List, Optional, Tuple
 
 # Set up logging
@@ -24,6 +25,14 @@ _cache_ttl = 30 * 60  # 30 minutes in seconds
 # For local development
 LOCAL_SERVICE_ACCOUNT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
                                   "firebase-key.json")
+
+# Alternative local paths to try
+ALTERNATIVE_PATHS = [
+    "firebase-key.json",  # In the current directory
+    os.path.join("backend", "firebase-key.json"),  # In backend directory
+    os.path.join("..", "firebase-key.json"),  # One level up
+    os.path.join(os.path.expanduser("~"), "firebase-key.json"),  # In user's home directory
+]
 
 def initialize_firebase():
     """Initialize Firebase using Admin SDK with priority on environment variables for cloud deployment."""
@@ -80,17 +89,49 @@ def initialize_firebase():
                 logger.error(f"Failed to initialize Firebase with secret file: {str(e)}")
                 # Fall through to next approach
         
-        # # APPROACH 2: Try local file (for development environment)
-        # if os.path.exists(LOCAL_SERVICE_ACCOUNT_PATH):
-        #     logger.info(f"Using local service account file: {LOCAL_SERVICE_ACCOUNT_PATH}")
-        #     cred = credentials.Certificate(LOCAL_SERVICE_ACCOUNT_PATH)
-        #     firebase_admin.initialize_app(cred)
-        #     _db = firestore.client()
-        #     logger.info("Successfully initialized Firebase using local service account file")
-        #     return _db
+        # APPROACH 3: Try the main local file path
+        if os.path.exists(LOCAL_SERVICE_ACCOUNT_PATH):
+            try:
+                logger.info(f"Using local service account file: {LOCAL_SERVICE_ACCOUNT_PATH}")
+                cred = credentials.Certificate(LOCAL_SERVICE_ACCOUNT_PATH)
+                firebase_admin.initialize_app(cred)
+                _db = firestore.client()
+                logger.info("Successfully initialized Firebase using local service account file")
+                return _db
+            except Exception as e:
+                logger.error(f"Failed to initialize Firebase with local service account file: {str(e)}")
+                # Fall through to try alternative paths
+        
+        # APPROACH 4: Try alternative local paths
+        for path in ALTERNATIVE_PATHS:
+            if os.path.exists(path):
+                try:
+                    logger.info(f"Trying alternative path: {path}")
+                    cred = credentials.Certificate(path)
+                    firebase_admin.initialize_app(cred)
+                    _db = firestore.client()
+                    logger.info(f"Successfully initialized Firebase using alternative path: {path}")
+                    return _db
+                except Exception as e:
+                    logger.error(f"Failed to initialize Firebase with alternative path {path}: {str(e)}")
+                    # Continue trying other paths
+        
+        # APPROACH 5: Check for GOOGLE_APPLICATION_CREDENTIALS environment variable
+        if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+            creds_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            if os.path.exists(creds_path):
+                try:
+                    logger.info(f"Using GOOGLE_APPLICATION_CREDENTIALS: {creds_path}")
+                    # Default credentials will use this env var
+                    firebase_admin.initialize_app()
+                    _db = firestore.client()
+                    logger.info("Successfully initialized Firebase using GOOGLE_APPLICATION_CREDENTIALS")
+                    return _db
+                except Exception as e:
+                    logger.error(f"Failed to initialize Firebase with GOOGLE_APPLICATION_CREDENTIALS: {str(e)}")
         
         # No valid configuration found
-        logger.error("No valid Firebase configuration found. Please set FIREBASE_CONFIG environment variable.")
+        logger.error("No valid Firebase configuration found. Please set FIREBASE_CONFIG environment variable or provide a firebase-key.json file.")
         raise FileNotFoundError("No valid Firebase configuration found")
             
     except Exception as e:
@@ -146,14 +187,43 @@ def fetch_receipt_context(limit: int = 300, force_refresh: bool = False) -> str:
                 logger.info("Using cached receipt context (no updates found)")
                 return _context_cache
         
-        # Initialize Firebase
-        db = initialize_firebase()
+        # Initialize Firebase with timeout safety
+        max_retries = 3
+        retry_count = 0
+        db = None
+        
+        while retry_count < max_retries:
+            try:
+                # Set a shorter timeout for the initialization
+                db = initialize_firebase()
+                break  # Successfully initialized, exit the loop
+            except Exception as e:
+                retry_count += 1
+                logger.warning(f"Firebase initialization attempt {retry_count} failed: {str(e)}")
+                if retry_count >= max_retries:
+                    logger.error(f"Failed to initialize Firebase after {max_retries} attempts")
+                    # If we have a cached version, return that on initialization error
+                    if _context_cache is not None:
+                        logger.info("Using cached receipt context due to initialization error")
+                        return _context_cache
+                    return "Error connecting to database after multiple attempts."
+                # Wait before retrying
+                time.sleep(1)
+        
         from firebase_admin import firestore
         
-        # Query receipts collection using client SDK
-        receipts_ref = db.collection("receipts")
-        receipts_docs = receipts_ref.order_by("createdTime", direction=firestore.Query.DESCENDING).limit(limit).get()
-        # receipts_docs = receipts_ref.limit(limit).get() #no ordering alternative
+        # Query receipts collection using client SDK with a timeout
+        try:
+            receipts_ref = db.collection("receipts")
+            # Set a timeout for the operation
+            receipts_docs = receipts_ref.order_by("createdTime", direction=firestore.Query.DESCENDING).limit(limit).get(timeout=30)
+        except Exception as e:
+            logger.error(f"Error querying receipts: {str(e)}")
+            # If we have a cached version, return that on query error
+            if _context_cache is not None:
+                logger.info("Using cached receipt context due to query error")
+                return _context_cache
+            return f"Error retrieving receipt data: {str(e)}"
 
         # Simple text format of all receipts without processing
         context = "USER RECEIPT DATA:\n\n"

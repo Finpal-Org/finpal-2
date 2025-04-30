@@ -3,6 +3,7 @@
 import os
 import sys
 import pathlib
+import socket
 
 # For local development, try to load dotenv, but this isn't needed on Render
 # since environment variables are provided directly
@@ -21,10 +22,33 @@ parent_dir = current_dir.parent.resolve()  # Get the parent directory (backend/)
 sys.path.insert(0, str(current_dir))  # Add src/ to path
 sys.path.insert(0, str(parent_dir))   # Add backend/ to path
 
-# Print paths for debugging
-print(f"Current directory: {current_dir}")
-print(f"Parent directory: {parent_dir}")
-print(f"Python path: {sys.path}")
+# Determine environment (local vs Render)
+def is_running_on_render():
+    return os.environ.get("RENDER") == "true" or os.environ.get("IS_RENDER") == "true"
+
+# Get machine hostname for logging
+hostname = socket.gethostname()
+
+# Environment detection
+if is_running_on_render():
+    env_type = "🌐 PRODUCTION (Render.com)"
+    print("⚠️ Running on Render - MCP functionality may be limited due to server constraints")
+else:
+    env_type = "🖥️ LOCAL DEVELOPMENT"
+    print("✅ Running locally - Full MCP functionality available with local servers")
+
+# Priority is given to local MCP servers to avoid Render limitations
+# See backend/src/services/pydantic_mcp_agent.py for MCP configuration priority
+
+#todo remove later debugging Print paths for debugging
+print(f"\n{'='*60}")
+print(f"🚀 FinPal Backend Starting")
+print(f"🔍 Environment: {env_type}")
+print(f"💻 Hostname: {hostname}")
+print(f"📁 Current directory: {current_dir}")
+print(f"📂 Parent directory: {parent_dir}")
+print(f"🔄 Python path: {sys.path}")
+print(f"{'='*60}\n")
 
 # import the api module - try both ways
 try:

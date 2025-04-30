@@ -135,7 +135,39 @@
   function sanitizeResponse(response: string): { content: string; thinking?: string } {
     if (typeof response !== 'string') return { content: response };
 
-    // Check for tool command patterns
+    // Look for split between thinking and content (introduced by our backend changes)
+    // The backend now puts a double newline between thinking and content
+    const splitIndex = response.indexOf('\n\n<div');
+
+    if (splitIndex !== -1) {
+      // We found a clear split between thinking and content
+      const thinking = response.substring(0, splitIndex).trim();
+      let content = response.substring(splitIndex + 2).trim();
+
+      // Process content for charts and unify backgrounds
+      content = processHtml(content);
+      content = unifyBackgrounds(content);
+
+      return { content, thinking };
+    }
+
+    // Otherwise, check for HTML content
+    const htmlStartIndex = response.indexOf('<div');
+
+    if (htmlStartIndex > 0) {
+      // There's text before the HTML - treat as thinking
+      const thinking = response.substring(0, htmlStartIndex).trim();
+      let content = response.substring(htmlStartIndex);
+
+      content = processHtml(content);
+      content = unifyBackgrounds(content);
+      return { content, thinking };
+    } else if (htmlStartIndex === 0) {
+      // Response starts directly with HTML - no thinking to extract
+      return { content: unifyBackgrounds(processHtml(response)) };
+    }
+
+    // Check for tool command patterns if no HTML is found
     const toolPatterns = [
       'tool_code',
       'sequential_thinking',
@@ -145,35 +177,30 @@
       'yfinance'
     ];
 
-    // Extract thinking process if tool commands are detected
+    // If no HTML but contains tool commands, show a default message
     for (const pattern of toolPatterns) {
       if (response.includes(pattern)) {
-        // Get everything before the first HTML tag as "thinking"
-        const htmlStartIndex = response.indexOf('<div');
-
-        if (htmlStartIndex !== -1) {
-          const thinking = response.substring(0, htmlStartIndex).trim();
-          let content = response.substring(htmlStartIndex);
-
-          // Process content for charts
-          content = processHtml(content);
-
-          return { content, thinking };
-        }
-
-        // If no HTML content is found, capture the tool command as thinking
-        if (!response.includes('<')) {
-          console.error(`Tool command detected in response:`, response);
-          return {
-            content: "I'm analyzing your data to answer your question. Please give me a moment...",
-            thinking: response
-          };
-        }
+        return {
+          content:
+            '<div class="p-4 bg-muted rounded-lg"><p class="text-lg">I\'ve analyzed your question. Please check my thought process for details.</p></div>',
+          thinking: response
+        };
       }
     }
 
     // Process content for charts even if no thinking was detected
-    return { content: processHtml(response) };
+    return { content: unifyBackgrounds(processHtml(response)) };
+  }
+
+  // Unify background colors to bg-muted
+  function unifyBackgrounds(content: string): string {
+    if (!content) return content;
+
+    // Replace all color backgrounds with bg-muted
+    content = content.replace(/bg-(blue|gray|purple|green|yellow)-50/g, 'bg-muted');
+    content = content.replace(/bg-gray-100/g, 'bg-muted');
+
+    return content;
   }
 
   // Send a message to the AI service
@@ -312,7 +339,7 @@
       <div class="mt-2 flex items-center justify-end">
         <button
           on:click={toggleDebugInfo}
-          class="text-xs text-gray-400 underline hover:text-gray-600"
+          class="text-xs text-gray-400 underline hover:text-gray-200"
         >
           {showDebugInfo ? 'Hide Debug Info' : 'Show Debug Info'}
         </button>
@@ -320,7 +347,7 @@
 
       <!-- Debug info for MCP tools -->
       {#if showDebugInfo}
-        <div class="mt-2 rounded-md bg-gray-100 p-2 text-xs text-gray-600">
+        <div class="mt-2 rounded-md bg-muted p-2 text-xs text-gray-200">
           <div>Connection status: {isConnected ? 'Connected' : 'Disconnected'}</div>
           <div>Available tools: {availableTools.length}</div>
           {#if availableTools.length > 0}
@@ -338,7 +365,7 @@
             <details>
               <summary class="mt-2 cursor-pointer">Last Raw Response</summary>
               <pre
-                class="mt-1 max-h-40 overflow-auto rounded bg-gray-200 p-2 text-xs">{rawResponse}</pre>
+                class="mt-1 max-h-40 overflow-auto rounded bg-muted/60 p-2 text-xs">{rawResponse}</pre>
             </details>
           {/if}
 
@@ -346,7 +373,7 @@
           <details>
             <summary class="mt-2 cursor-pointer">Message History</summary>
             <pre
-              class="mt-1 max-h-40 overflow-auto rounded bg-gray-200 p-2 text-xs">{JSON.stringify(
+              class="mt-1 max-h-40 overflow-auto rounded bg-muted/60 p-2 text-xs">{JSON.stringify(
                 messages,
                 null,
                 2
@@ -378,13 +405,30 @@
                   <!-- Show thinking bubble if available -->
                   {#if message.role === 'assistant' && message.thinking}
                     <div
-                      class="rounded-lg border-l-4 border-green-400 bg-gray-200 p-3 text-xs text-gray-600"
+                      class="rounded-lg border-l-4 border-green-400 bg-muted p-3 text-xs text-gray-600"
                     >
                       <details>
-                        <summary class="cursor-pointer font-medium"
-                          >Show AI thinking process...</summary
-                        >
-                        <pre class="mt-2 whitespace-pre-wrap">{message.thinking}</pre>
+                        <summary class="flex cursor-pointer items-center gap-1 font-medium">
+                          <span class="text-green-600">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              ><path d="M12 2a10 10 0 1 0 10 10H12V2Z" /><path
+                                d="M21.17 8H12V2.83c2.72.45 5.29 2 7.17 4.17Z"
+                              /></svg
+                            >
+                          </span>
+                          <span>View AI thought process</span>
+                        </summary>
+                        <pre
+                          class="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-gray-200 p-2 text-xs">{message.thinking}</pre>
                       </details>
                     </div>
                   {/if}

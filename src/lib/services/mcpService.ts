@@ -1,37 +1,21 @@
-//# The client will:
-
-// Connect to the specified server
-// List available tools
-// Start an interactive chat session where you can:
-// Enter queries
-// See tool executions
-// Get responses from Claude
-
-// # How It Works
-// When you submit a query:
-
-// The client gets the list of available tools from the server
-// Your query is sent to Claude along with tool descriptions
-// Claude decides which tools (if any) to use
-// The client executes any requested tool calls through the server
-// Results are sent back to Claude
-// Claude provides a natural language response
-// The response is displayed to you
-
-//#1 STEP Basic Client Structure: create the basic client class in index.ts todo is index.ts right?
-
 /**
  * MCPClient - API client to connect to our Python backend with MCP tool support
  * This service handles all communication with the AI backend server.
  */
 export class MCPClient {
   private apiUrl: string;
+  private remoteApiUrl?: string;
   private isConnected: boolean = false;
   private tools: any[] = [];
 
   constructor() {
-    // Get backend URL from environment or use default
-    this.apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    // Prioritize local backend over remote server
+    this.apiUrl = 'http://localhost:3002';
+
+    // Store remote URL as fallback if defined in environment
+    if (import.meta.env.VITE_BACKEND_URL) {
+      this.remoteApiUrl = import.meta.env.VITE_BACKEND_URL;
+    }
   }
 
   /**
@@ -40,63 +24,86 @@ export class MCPClient {
    */
   async connectToServer(serverScriptPath: string): Promise<boolean> {
     try {
-      // Check if the backend is running
-      const healthResponse = await fetch(`${this.apiUrl}/api/health`);
-      const healthData = await healthResponse.json();
+      // First attempt to connect to local backend
+      try {
+        const healthResponse = await fetch(`${this.apiUrl}/api/health`);
+        const healthData = await healthResponse.json();
 
-      // If health check shows connected, we should explicitly get the tools
-      if (healthData.connected) {
-        this.isConnected = true;
-
-        // Always get a fresh list of tools via POST to /api/connect
-        const connectResponse = await fetch(`${this.apiUrl}/api/connect`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        });
-
-        if (connectResponse.ok) {
-          const connectData = await connectResponse.json();
-          if (connectData.tools) {
-            this.tools = connectData.tools;
-            console.log(`Connected with ${this.tools.length} tools available`);
-          }
-        } else {
-          // Fallback to /api/tools if /api/connect fails
-          await this.fetchTools();
+        if (healthData.connected) {
+          this.isConnected = true;
+          console.log('Connected to local backend successfully');
+          return await this.getServerTools();
         }
-
-        return true;
+      } catch (localError) {
+        console.log('Could not connect to local backend, trying remote...');
       }
 
-      // Otherwise try to initialize connection
-      const response = await fetch(`${this.apiUrl}/api/connect`, {
+      // If local failed and we have a remote URL, try that instead
+      if (this.remoteApiUrl) {
+        try {
+          const remoteHealthResponse = await fetch(`${this.remoteApiUrl}/api/health`);
+          const remoteHealthData = await remoteHealthResponse.json();
+
+          if (remoteHealthData.connected) {
+            // Switch to remote URL
+            this.apiUrl = this.remoteApiUrl;
+            this.isConnected = true;
+            console.log('Connected to remote backend successfully');
+            return await this.getServerTools();
+          }
+        } catch (remoteError) {
+          console.error('Failed to connect to remote backend');
+        }
+      }
+
+      // If we got here, both local and remote failed
+      this.isConnected = false;
+      return false;
+    } catch (error) {
+      console.error('Error connecting to backend:', error);
+      this.isConnected = false;
+      return false;
+    }
+  }
+
+  // Helper method to get tools from the connected server
+  private async getServerTools(): Promise<boolean> {
+    try {
+      // Always get a fresh list of tools via POST to /api/connect
+      const connectResponse = await fetch(`${this.apiUrl}/api/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({}) // We don't need serverPath anymore
+        body: JSON.stringify({})
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to connect to AI service: ${response.statusText}`);
+      if (connectResponse.ok) {
+        const connectData = await connectResponse.json();
+        if (connectData.tools) {
+          this.tools = connectData.tools;
+          console.log(`Connected with ${this.tools.length} tools available`);
+          return true;
+        }
+      } else {
+        // Fallback to /api/tools if /api/connect fails
+        try {
+          const toolsResponse = await fetch(`${this.apiUrl}/api/tools`);
+          const toolsData = await toolsResponse.json();
+
+          if (toolsData.tools) {
+            this.tools = toolsData.tools;
+            console.log(`Connected with ${this.tools.length} tools available via /api/tools`);
+            return true;
+          }
+        } catch (toolsError) {
+          console.error('Error fetching tools via fallback:', toolsError);
+        }
       }
 
-      const data = await response.json();
-      this.isConnected = data.status === 'connected';
-
-      // Store available tools
-      if (this.isConnected && data.tools) {
-        this.tools = data.tools;
-        console.log(`Connected with ${this.tools.length} tools available`);
-      }
-
-      return this.isConnected;
+      return false;
     } catch (error) {
-      console.error('Error connecting to AI service:', error);
-      this.isConnected = false;
+      console.error('Error getting tools:', error);
       return false;
     }
   }
@@ -129,20 +136,42 @@ export class MCPClient {
       const data = await response.json();
       let responseText = data.response;
 
-      // Safety check: Filter out any tool command artifacts that might slip through
+      // Parse the response to extract thinking vs actual content
       if (typeof responseText === 'string') {
+        // If response already separates thinking and content with HTML, just return it
+        if (
+          responseText.includes('<div') &&
+          (responseText.includes('tool_code') ||
+            responseText.includes('sequential_thinking') ||
+            responseText.includes('memory_tool') ||
+            responseText.includes('brave_search'))
+        ) {
+          console.log('Response contains both thinking and content, preserving both');
+          // The frontend will handle splitting these properly
+          return responseText;
+        }
+
+        // If the response is pure tool commands with no HTML
         if (
           responseText.includes('tool_code') ||
-          responseText.includes('sequential_thinking.run') ||
+          responseText.includes('sequential_thinking.think') ||
           responseText.includes('memory_tool') ||
           responseText.includes('brave_search')
         ) {
-          console.error('Tool command detected in response:', responseText);
-          responseText =
-            "I'm analyzing your information to provide insights. Please ask me a specific question about your finances or receipts.";
+          console.log('Pure tool commands detected, preserving as thinking');
+
+          // Create a synthetic response with both thinking and a generic content
+          // The frontend will display the thinking in a collapsible bubble
+          const htmlContent = `<div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-lg">I've analyzed your question and I'm ready to help. Check my thought process for details.</p>
+          </div>`;
+
+          // Return both parts - frontend will parse this
+          return responseText + '\n\n' + htmlContent;
         }
       }
 
+      // If we reach here, there are no tool commands, so return as is
       return responseText;
     } catch (error) {
       console.error('Error processing message:', error);

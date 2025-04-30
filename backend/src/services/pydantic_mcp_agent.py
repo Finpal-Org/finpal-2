@@ -8,6 +8,8 @@ import sys
 import os
 import traceback
 import psutil  # Add this import for memory monitoring
+from typing import TypedDict, Dict, Any, List
+import time
 
 # Set up paths to make imports work
 current_dir = pathlib.Path(__file__).parent.resolve()
@@ -56,9 +58,46 @@ except (ImportError, ValueError) as e:
 # Get the directory where the current script is located
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 
-# mcp_config.js is transformed -> .json format used here    CONFIG_FILE = "/etc/secrets/mcp_config.json"  # Use Render's secret file path
-CONFIG_FILE = "/etc/secrets/mcp_config.json"
-# CONFIG_FILE = os.path.join(backend_dir, "mcp_config.js") # the old mcp local config.js 
+# Define possible configuration file paths
+RENDER_CONFIG_PATH = "/etc/secrets/mcp_config.json"  # Render's secret file path
+LOCAL_CONFIG_PATH = os.path.join(backend_dir, "mcp_config.json")  # Local path (generated JSON)
+LOCAL_CONFIG_JS_PATH = os.path.join(backend_dir, "mcp_config.js")  # Local JS config file path
+
+# Global variable to store cached receipt context
+_cached_receipt_context = None
+_last_receipt_refresh = 0
+_receipt_cache_ttl = 15 * 60  # 15 minutes in seconds
+
+# Check environment and set appropriate config file path
+def get_config_file_path():
+    # Check if the MCP_CONFIG_PATH environment variable is set
+    env_config_path = os.environ.get('MCP_CONFIG_PATH')
+    if env_config_path and os.path.exists(env_config_path):
+        print(f"Using config path from environment variable: {env_config_path}")
+        return env_config_path
+    
+    # Check for local JSON file first - prioritize local over Render
+    if os.path.exists(LOCAL_CONFIG_PATH):
+        print(f"Using local JSON config: {LOCAL_CONFIG_PATH}")
+        return LOCAL_CONFIG_PATH
+    
+    # Check for Render's secret file path as fallback
+    if os.path.exists(RENDER_CONFIG_PATH):
+        print(f"Using Render config path: {RENDER_CONFIG_PATH}")
+        return RENDER_CONFIG_PATH
+    
+    # If JS file exists but JSON doesn't, log a warning
+    if os.path.exists(LOCAL_CONFIG_JS_PATH):
+        print(f"Found JS config but no JSON config. Please run 'node generate-config.js' in the backend directory")
+        print(f"Defaulting to: {LOCAL_CONFIG_PATH}")
+        return LOCAL_CONFIG_PATH
+    
+    # No config found - log warning and return the local path as default
+    print("WARNING: No configuration file found. Please create a mcp_config.json file")
+    return LOCAL_CONFIG_PATH
+
+# Set the config file path
+CONFIG_FILE = get_config_file_path()
 
 print(f"CONFIG_FILE path: {CONFIG_FILE}")
 print(f"CONFIG_FILE exists: {os.path.exists(CONFIG_FILE)}")
@@ -81,6 +120,12 @@ load_dotenv(dotenv_path=backend_env_path, override=True)
 #     "gemini-2.0-flash",
 #     "gemini-2.0-flash-lite-preview-02-05",
 #     "gemini-2.0-pro-exp-02-05",
+
+class _GeminiPartUnion(TypedDict, total=False):
+    text: Dict[str, Any] | str  # Allow for either text as string or as a dict with additional fields
+    function_call: Dict[str, Any]
+    function_response: Dict[str, Any]
+    executableCode: Dict[str, Any]  # Support for executableCode type
 
 def get_model():
     # Use the proper model and explicitly pass the API key
@@ -128,16 +173,11 @@ async def get_pydantic_ai_agent():
         print("Creating MCPClient instance...")
         client = MCPClient()
         
-        # Check if config file exists
+        # Check if config file exists (should be already verified but check again)
         if not os.path.exists(CONFIG_FILE):
             print(f"Warning: Config file not found at {CONFIG_FILE}")
-            fallback_path = os.path.join(backend_dir, "mcp_config.json")
-            if os.path.exists(fallback_path):
-                print(f"Using fallback config at {fallback_path}")
-                CONFIG_FILE = fallback_path
-            else:
-                print("No fallback config found. Using AI agent without tools")
-                return None, Agent(model=get_model())
+            print("Using AI agent without tools")
+            return None, Agent(model=get_model())
         
         print("Loading servers from config...")
         try:
@@ -229,17 +269,34 @@ async def get_pydantic_ai_agent():
                 # Add FinPal system prompt as a dynamic decorator
                 @agent.system_prompt(dynamic=True)
                 def finpal_system_prompt():
-                    # Try to get receipt context if available
-                    try:
-                        # Import here to avoid circular imports
-                        from src.services.direct_context import fetch_receipt_context
-                        # ! here CAG happens, injecting context and caching it
-                        receipt_context = fetch_receipt_context(limit=150) 
-                        print(f"Successfully fetched receipt context ({len(receipt_context)} characters)")
-                    except Exception as e:
-                        print(f"Error fetching receipt context: {e}")
-                        receipt_context = "No receipt data available."
+                    global _cached_receipt_context, _last_receipt_refresh
                     
+                    # Get current time for cache comparison
+                    current_time = time.time()
+                    
+                    # Check if we have cached context and it's still valid
+                    if _cached_receipt_context is None or (current_time - _last_receipt_refresh) > _receipt_cache_ttl:
+                        try:
+                            # Import here to avoid circular imports
+                            from src.services.direct_context import fetch_receipt_context
+                            # Fetch receipt context and update cache
+                            _cached_receipt_context = fetch_receipt_context(limit=150) 
+                            _last_receipt_refresh = current_time
+                            print(f"Successfully fetched receipt context ({len(_cached_receipt_context)} characters)")
+                        except Exception as e:
+                            print(f"Error fetching receipt context: {e}")
+                            # If we have cache, use it even if expired on error
+                            if _cached_receipt_context is None:
+                                _cached_receipt_context = "No receipt data available."
+                            else:
+                                print("Using expired cached receipt context due to error")
+                    else:
+                        print(f"Using cached receipt context ({len(_cached_receipt_context)} characters)")
+                    
+                    # Use the cached context
+                    receipt_context = _cached_receipt_context
+                    
+                    # todo apply formating even if mcp servers arent setup, skip usage of servers if empty.
                     base_prompt = """
 You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis and financial data.
 

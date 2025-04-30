@@ -108,10 +108,22 @@ async def get_or_create_agent():
 async def health():
     try:
         agent = await get_or_create_agent()
+        # Determine environment
+        is_render = os.environ.get("RENDER") == "true" or os.environ.get("IS_RENDER") == "true"
+        env_type = "production" if is_render else "local"
+        hostname = os.environ.get("HOSTNAME", "unknown")
+        
         # Always return connected: true if we have an agent, regardless of tools
-        return {"status": "ok", "connected": True}
+        return {
+            "status": "ok", 
+            "connected": True,
+            "environment": env_type,
+            "hostname": hostname,
+            "timestamp": datetime.now().isoformat(),
+            "tools_available": len(agent.tools) if hasattr(agent, 'tools') else 0
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e), "connected": False}
+        return {"status": "error", "message": str(e), "connected": False, "environment": "unknown"}
 
 # ENDPOINT 2: Connect to AI service
 # Frontend calls this when initializing
@@ -206,20 +218,64 @@ async def chat(message: ChatMessage):
             # Remove any other code fence markers
             response_text = response_text.replace("```", "")
             
-            # Clean up tool command artifacts
-            patterns = [
-                r'sequential_thinking\.run\(.*?\)',
-                r'memory_tool\..*?\(',
-                r'brave_search\..*?\(',
-                r'google_maps\..*?\(',
-                r'yfinance\..*?\('
+            # Check if there's tool command at the beginning
+            has_leading_tool_code = False
+            tool_command_patterns = [
+                r'^tool_code',
+                r'^sequential_thinking\.think',
+                r'^sequential_thinking\.run',
+                r'^memory_tool\.',
+                r'^brave_search\.search_and_summarize',
+                r'^print\(brave_search\.',
+                r'^brave_search\.',
+                r'^google_maps\.',
+                r'^yfinance\.'
             ]
             
-            for pattern in patterns:
-                response_text = re.sub(pattern, "", response_text, flags=re.DOTALL)
+            for pattern in tool_command_patterns:
+                if re.search(pattern, response_text.strip(), re.DOTALL):
+                    has_leading_tool_code = True
+                    break
+            
+            # If there's tool code and no HTML response yet, try to extract an actual answer
+            if has_leading_tool_code and not response_text.strip().endswith(">"):
+                print("Tool command detected, extracting answer and preserving thinking")
+                
+                # Try to extract the result from sequential thinking
+                thinking_result_match = re.search(r'"result":\s*"(.+?)"', response_text, re.DOTALL)
+                
+                # Format this nicely to have both thinking and content
+                if thinking_result_match:
+                    # Extract the actual content from the sequential thinking result
+                    extracted_content = thinking_result_match.group(1)
+                    extracted_content = extracted_content.replace('\\n', '\n').replace('\\"', '"')
+                    
+                    # Create a clear HTML response with the extracted content
+                    html_response = f'<div class="p-4 bg-gray-50 rounded-lg"><p class="text-lg">{extracted_content}</p></div>'
+                    
+                    # Return both thinking and content - frontend will handle the UI
+                    response_text = response_text + "\n\n" + html_response
+                else:
+                    # Try to find any human-readable text after the tool commands
+                    normal_text_match = re.search(r'\)\s*\n+([\s\S]+)', response_text)
+                    if normal_text_match:
+                        text_content = normal_text_match.group(1).strip()
+                        html_response = f'<div class="p-4 bg-gray-50 rounded-lg"><p class="text-lg">{text_content}</p></div>'
+                        response_text = response_text + "\n\n" + html_response
+                    else:
+                        # If we can't extract anything useful, add a generic response
+                        html_response = '<div class="p-4 bg-gray-50 rounded-lg"><p class="text-lg">I\'ve analyzed your question. Please check my thought process for details.</p></div>'
+                        response_text = response_text + "\n\n" + html_response
+                
+                # Clean up any Python escaping
+                response_text = re.sub(r'\\n', '\n', response_text)
+                response_text = re.sub(r'\\"', '"', response_text)
             
             # Trim whitespace
             response_text = response_text.strip()
+            
+            # Log the final response length
+            print(f"Final response length: {len(response_text)} characters")
         
         # Return the AI's response to the frontend
         return {"response": response_text}

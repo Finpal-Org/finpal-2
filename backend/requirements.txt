@@ -18,6 +18,7 @@ firebase-admin
 firebase-client  # Client SDK for Firestore access
 pyrebase4  # Alternative Firebase client implementation
 
+anyio>=4.6.0 # for render vague error
 # Additional dependencies
 
 # Note: Install with pip install -r requirements.txt 
