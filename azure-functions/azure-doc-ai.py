@@ -117,7 +117,40 @@ def extracted_result(result):
         documents = result.get("analyzeResult",{}).get("documents",[])
         if not documents:
             return{"error": "No docs found in azure result"}
+# /*
+#   receipt_id: "541E7A42-1771-4AB0-A1E2-A6F295936145"
+# receipt_image: https://firebasestorage.googleapis.com/...
+# category: "Meal"
+# date: March 30, 2025 at 7:10:22AM
+# invoice_number: "123456"
+# is_duplicate: false
+# note: "Hello World..."
 
+# line_items:
+#     0:
+#         id: 12345678
+#         description: "Pizza"
+#         quantity: 2
+#         total: 45.43
+#     1:
+#         id: 123456789
+#         description: "Water"
+#         quantity: 1
+#         total: 2.43
+
+# payment:
+#     display_name: "Mada"
+#     type: "mada"
+
+# vendor:
+#     logo: https://firebasestorage.googleapis.com/...
+#     name: "Pizza Hut"
+
+# subtotal: 77.39
+# tax: 11.45
+# total: 88.84
+# user_id: "n0XUczKL7SVy6MJfHearCUFsDeQ2"
+# */
         #1st document (the Result)
         document = documents[0]  # Get the document object (without fields)
 
@@ -125,26 +158,30 @@ def extracted_result(result):
 #todo transportation (car) is Transportation.CarRental change it..
         # 1.Needed fields & mapping names (renaming azure's naming to our preffered naming)
         field_mapping = {
-            #left is our name: right is azure's naming
-            "merchantName" : "MerchantName",
-            "address": "MerchantAddress",  
-            "phone": "MerchantPhoneNumber",
+            # vendor object
+            "vendor": {
+                "name": "MerchantName",
+                "address": "MerchantAddress",
+                "phone": "MerchantPhoneNumber"
+            },
+            # date and time
             "date": "TransactionDate",
             "time": "TransactionTime",
-            "total":"Total", #TODO: Subtotal {CurrencyCode}
+            
+            # money values
+            "total": "Total",
             "subtotal": "Subtotal", 
-            "country": "CountryRegion",
-            "taxDetails": "TaxDetails", # 15% 
-            "totalTax": "TotalTax",
+            "tax": "TotalTax",
+            
+            # other fields
             "tip": "Tip",
-            "payment":"PaymentType",
-            "currency": "currencyCode", #TODO: currency?
-            "transactionId" : "TransactionId",
-            "items": "Items",
-            "tags": "Tags",
-            # "category": "ReceiptType",
-            # "receiptType": "ReceiptType"  #no nesting
-          
+            "payment": {
+                "type": "PaymentType"
+            },
+            "currency": "currencyCode",
+            "invoice_number": "TransactionId",
+            "line_items": "Items",
+            "category": "ReceiptType"
         }
 
         # 2. extract content & confidence fields
@@ -170,64 +207,37 @@ def extracted_result(result):
             items_array = []
             
             if "valueArray" in items_field:
-                for item in items_field.get("valueArray", []):
+                for i, item in enumerate(items_field.get("valueArray", [])):
                     item_properties = {}
                     
                     # The structure is valueObject, not properties
                     if "valueObject" in item:
                         value_obj = item["valueObject"]
                         
-                        # # Map actual fields to our expected fields
-                        # if "ReceiptType" in value_obj:
-                        #    extracted["ReceiptType"]= {"category" : value_obj.get("ReceiptType", "other")} #TODO: category right?
+                        # Add id field (using index if no ID is available)
+                        item_properties["id"] = i + 1
 
                         if "Description" in value_obj:
-                            item_properties["Description"] = {
-                                "content": value_obj["Description"].get("content", ""),
-                                "confidence": value_obj["Description"].get("confidence", 0)
-                            }
+                            item_properties["description"] = value_obj["Description"].get("content", "")
                         
                         if "Quantity" in value_obj:
-                            item_properties["Quantity"] = {
-                                "content": value_obj["Quantity"].get("content", ""),
-                                "confidence": value_obj["Quantity"].get("confidence", 0)
-                            }
+                            item_properties["quantity"] = value_obj["Quantity"].get("content", "1")
                         
                         if "TotalPrice" in value_obj:
-                            item_properties["Amount"] = {  # Mapping TotalPrice to Amount
-                                "content": value_obj["TotalPrice"].get("content", ""),
-                                "confidence": value_obj["TotalPrice"].get("confidence", 0),
-                                "currency": value_obj["TotalPrice"].get("valueCurrency",{}).get("currencyCode","SAR")
-                            }
+                            item_properties["total"] = value_obj["TotalPrice"].get("content", "0")
                     
                     items_array.append(item_properties)
             
-            extracted["items"] = {
-                "content": items_array,
-                "confidence": items_field.get("confidence", 0)
-            }
+            extracted["line_items"] = items_array
 
         #Tags 
         if "Tags" in analyze_result:
             extracted["tags"]= analyze_result.get("Tags", {})
 
-        #Doctype / Category TODO: CATEGORY might not be in doctype, more like in receiptType{supplies *directly no nesting*}
-        # if "docType" in document:
-            # #Document type: (receipt.retailMeal)
-            # 1.Need it to be "Meal"
-            # 2.make into arr, seperate via .
-            # 3.then remove "retail" from "retailMeal"
-            doc_type= document.get("docType","") #receipt.retailMeal
-
-            # if "." in doc_type:
-            #     split_category = doc_type.split(".") #["receipt", "retailMeal"]
-            #     if len(split_category) > 1:     
-            #         unreadable_category= split_category[1] #"retailMeal"
-
-            #         readble_category= unreadable_category.removeprefix("retail").title() #Meal 
-
-                    #set content to readble category "Meal"
-            extracted["category"]= {"content": doc_type, "confidence":document.get("confidence",0)}
+        #Doctype / Category 
+        if "docType" in document:
+            doc_type= document.get("docType","") 
+            extracted["category"] = doc_type.split(".")[-1] if "." in doc_type else doc_type
 
 
     #exception

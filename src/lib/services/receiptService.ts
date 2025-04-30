@@ -184,30 +184,29 @@ export function extractResults(result: any) {
 
     // Field mapping (our field names to Azure's field names)
     const fieldMapping: Record<string, string> = {
-      merchantName: 'MerchantName',
-      address: 'MerchantAddress',
-      phone: 'MerchantPhoneNumber',
       date: 'TransactionDate',
       time: 'TransactionTime',
       total: 'Total',
       subtotal: 'Subtotal',
-      countryRegion: 'CountryRegion', //COUNTRY
+      countryRegion: 'CountryRegion',
       taxDetails: 'TaxDetails',
-      totalTax: 'TotalTax',
+      tax: 'TotalTax',
       tip: 'Tip',
-      payment: 'Payments', // This is correct - the field is called Payments in the API
       currency: 'currencyCode',
-      transactionId: 'TransactionId',
-      items: 'Items',
-      tags: 'Tags'
+      invoice_number: 'TransactionId'
     };
 
-    // Extract content & confidence fields from azure's fields
+    // Create vendor object
+    extracted.vendor = {
+      name: fields.MerchantName?.content || '',
+      address: fields.MerchantAddress?.content || '',
+      phone: fields.MerchantPhoneNumber?.content || ''
+    };
+
+    // Extract content for regular fields
     for (const [ourField, azureField] of Object.entries(fieldMapping)) {
-      if (azureField in fields && azureField !== 'Payments') {
-        // Skip Payments as it needs special handling
-        // create our own fields in extracted, get their values from azures fields
-        extracted[ourField] = fields[azureField].content || ''; //ex address = content no nesting
+      if (azureField in fields) {
+        extracted[ourField] = fields[azureField].content || '';
       }
     }
 
@@ -217,6 +216,9 @@ export function extractResults(result: any) {
       const rawCategory = fields.ReceiptType.valueString || 'Other';
       extracted.category = standardizeCategory(rawCategory);
     }
+
+    // Generate a unique receipt_id
+    extracted.receipt_id = crypto.randomUUID();
 
     // Special handling for TaxDetails to extract rate, description, and netAmount
     if ('TaxDetails' in fields) {
@@ -257,11 +259,14 @@ export function extractResults(result: any) {
     // Special handling for Payments array
     if ('Payments' in fields) {
       const paymentsField = fields.Payments;
-      let paymentInfo = { method: '', amount: '' }; // Initialize with empty strings
 
-      console.log('Payments field structure:', JSON.stringify(paymentsField, null, 2));
+      // Initialize payment object
+      extracted.payment = {
+        display_name: '',
+        type: ''
+      };
 
-      // Handle the array structure from the 2024-11-30 API
+      // Handle the array structure from the API
       if (
         'valueArray' in paymentsField &&
         Array.isArray(paymentsField.valueArray) &&
@@ -274,90 +279,50 @@ export function extractResults(result: any) {
           const valueObj = payment.valueObject;
 
           if ('Method' in valueObj) {
-            paymentInfo.method = valueObj.Method.content || valueObj.Method.valueString || '';
-          }
-
-          if ('Amount' in valueObj) {
-            paymentInfo.amount =
-              valueObj.Amount.content ||
-              (valueObj.Amount.valueCurrency ? valueObj.Amount.valueCurrency.amount : '') ||
-              '';
+            const method = valueObj.Method.content || valueObj.Method.valueString || '';
+            extracted.payment.display_name = method;
+            extracted.payment.type = method.toLowerCase();
           }
         }
       } else if ('content' in paymentsField) {
         // Alternative format where just content is available
-        paymentInfo.method = paymentsField.content || '';
+        const method = paymentsField.content || '';
+        extracted.payment.display_name = method;
+        extracted.payment.type = method.toLowerCase();
       }
-
-      // Override the payment field with properly structured object
-      extracted.payment = paymentInfo;
-
-      // Debug logging
-      console.log('Payment extraction debug:');
-      console.log('- Original payment field:', JSON.stringify(paymentsField, null, 2));
-      console.log('- Extracted payment info:', JSON.stringify(paymentInfo, null, 2));
-    } else {
-      console.log('No Payments field found in the API response');
-      console.log('Available fields:', Object.keys(fields));
     }
 
-    // Handle complex items data, TODO: flatten items like in mobile
+    // Handle complex items data
     if ('Items' in fields) {
       const itemsField = fields.Items;
-      const itemsArray = [];
+      extracted.line_items = [];
 
       if ('valueArray' in itemsField) {
-        for (const item of itemsField.valueArray || []) {
-          const itemProperties: any = {};
+        for (let i = 0; i < (itemsField.valueArray || []).length; i++) {
+          const item = itemsField.valueArray[i];
+          const lineItem = {
+            id: i + 1,
+            description: '',
+            quantity: 1,
+            total: 0
+          };
 
           if ('valueObject' in item) {
             const valueObj = item.valueObject;
             if ('Description' in valueObj) {
-              itemProperties.description = valueObj.Description.content || '';
+              lineItem.description = valueObj.Description.content || '';
             }
             if ('Quantity' in valueObj) {
-              itemProperties.quantity = valueObj.Quantity.content || '';
+              lineItem.quantity = valueObj.Quantity.content || 1;
             }
             if ('TotalPrice' in valueObj) {
-              itemProperties.amount = valueObj.TotalPrice.content || '';
+              lineItem.total = valueObj.TotalPrice.content || 0;
             }
-            // flatten currency code
-            if ('TotalPrice' in valueObj) {
-              itemProperties.currency = valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR';
-            }
-            // if ('Description' in valueObj) {
-            //   itemProperties.Description = {
-            //     content: valueObj.Description.content || '',
-            //     confidence: valueObj.Description.confidence || 0
-            //   };
-            // }
-
-            // if ('Quantity' in valueObj) {
-            //   itemProperties.Quantity = {
-            //     content: valueObj.Quantity.content || '',
-            //     confidence: valueObj.Quantity.confidence || 0
-            //   };
-            // }
-
-            // if ('TotalPrice' in valueObj) {
-            //   itemProperties.Amount = {
-            //     content: valueObj.TotalPrice.content || '',
-            //     confidence: valueObj.TotalPrice.confidence || 0,
-            //     currency: valueObj.TotalPrice.valueCurrency?.currencyCode || 'SAR'
-            //   };
-            // }
           }
 
-          itemsArray.push(itemProperties);
+          extracted.line_items.push(lineItem);
         }
       }
-
-      // extracted.items = {
-      //   content: itemsArray,
-      //   confidence: itemsField.confidence || 0
-      // };
-
-      extracted.items = itemsArray; // no nesting for items
     }
 
     // Handle tags, todo do we need?

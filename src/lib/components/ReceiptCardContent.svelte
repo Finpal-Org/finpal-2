@@ -78,13 +78,21 @@
     );
   }
 
-  // Helper function to remove dollar sign if present
-  function removeSign(value: string | undefined): string {
-    if (!value) return '';
+  // Helper function to remove dollar sign if present and handle any input type
+  function removeSign(value: any): string {
+    if (value === undefined || value === null) return '';
+    // Convert to string
+    const strValue = String(value);
     // Convert any Arabic/Persian numerals to English before processing
-    const englishValue = convertArabicToEnglishNumbers(value);
+    const englishValue = convertArabicToEnglishNumbers(strValue);
     // Remove $ and any non-numeric characters except decimal point
     return String(englishValue).replace(/[^\d.]/g, '');
+  }
+
+  // Convert any value to string safely
+  function safeString(value: any): string {
+    if (value === undefined || value === null) return '';
+    return String(value);
   }
 </script>
 
@@ -123,31 +131,26 @@
                   </div>
                 {/if}
               {/if}
-              {#if hasValue(receipt?.phone)}
+              {#if hasValue(receipt?.vendor?.phone || receipt?.phone)}
                 <div class="flex justify-between gap-2">
                   <span class="text-muted-foreground">Contact</span>
-                  <!-- TODO: needs proper phone formating for quick access (copy paste) -->
                   <span>
-                    <!-- blue text for phone calling -->
-                    <a
-                      href="tel:{receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}"
-                    >
-                      {receipt.phone ? convertArabicToEnglishNumbers(receipt.phone) : ''}
+                    <a href="tel:{String(receipt.vendor?.phone || receipt.phone || '')}">
+                      {String(receipt.vendor?.phone || receipt.phone || '')}
                     </a>
                   </span>
                 </div>
               {/if}
-              {#if hasValue(receipt?.totalTax)}
+              <!-- tax  -->
+              <!-- {#if hasValue(receipt?.tax || receipt?.totalTax)}
                 <div class="flex justify-between gap-2">
                   <span class="text-muted-foreground">Tax</span>
-                  <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->
                   <div class="flex items-center justify-center gap-1">
-                    <span class="flex gap-1"
-                      >{removeSign(receipt.totalTax)}
-                      <!-- change color based on theme white/black | also confitional if saudi receipt, or includes"$" then remove -->
+                    <span class="flex gap-1">
+                      {removeSign(safeString(receipt.tax || receipt.totalTax))}
                     </span>
                     <span>
-                      {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
+                      {#if String(receipt?.total || '').includes('$') || (receipt?.line_items?.[0] && 'currency' in receipt.line_items[0] && receipt.line_items[0].currency === 'USD') || (receipt?.items?.[0] && 'currency' in receipt.items[0] && receipt.items[0].currency === 'USD')}
                         $
                       {:else}
                         <svg
@@ -170,7 +173,19 @@
                     </span>
                   </div>
                 </div>
-              {/if}
+              {/if} -->
+
+              <!-- Payment Method -->
+              <div class="flex justify-between gap-2">
+                <span class="text-muted-foreground">Payment Method</span>
+                <span
+                  >{receipt.payment?.display_name ||
+                    (receipt.payment && 'method' in receipt.payment
+                      ? receipt.payment.method
+                      : 'Cash')}</span
+                >
+              </div>
+
               {#if hasValue(receipt?.subtotal)}
                 <div class="flex justify-between gap-2">
                   <span class="text-muted-foreground">Subtotal</span>
@@ -205,11 +220,6 @@
                   </div>
                 </div>
               {/if}
-              <!-- todo PAYMENT METHOD  -->
-              <div class="flex justify-between gap-2">
-                <span class="text-muted-foreground">Payment Method</span>
-                <span>{receipt.payment?.method}</span>
-              </div>
               <!--TODO Items : Loop if there is more than 1 item-->
               <!-- {#if receipt.items}
                 {#each receipt.items as item}
@@ -241,7 +251,7 @@
               <div class="mt-2 flex justify-between font-medium">
                 <span class="text-xl font-semibold">Total:</span>
                 <div class="flex items-center justify-center gap-1">
-                  <span class="text-xl font-medium">{removeSign(receipt.total)} </span>
+                  <span class="text-xl font-medium">{removeSign(safeString(receipt.total))} </span>
 
                   <span>
                     {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
