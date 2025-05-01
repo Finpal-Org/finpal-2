@@ -36,6 +36,36 @@
   // Statistics state
   let totalReceipts = $derived(receipts.length);
 
+  // Helper function to get merchant name from either structure
+  function getMerchantName(receipt: any): string {
+    return receipt?.vendor?.name || receipt?.merchantName || 'Unknown';
+  }
+
+  // Helper function to get address from either structure
+  function getAddress(receipt: any): string {
+    return receipt?.vendor?.address || receipt?.address || '';
+  }
+
+  // Helper function to get phone from either structure
+  function getPhone(receipt: any): string {
+    return receipt?.vendor?.phone || receipt?.phone || '';
+  }
+
+  // Helper function to get tax from either structure
+  function getTax(receipt: any): string {
+    return receipt?.tax || receipt?.totalTax || '';
+  }
+
+  // Helper function to get total from either structure
+  function getTotal(receipt: any): string {
+    return receipt?.total || '0.00';
+  }
+
+  // Helper function to get date from either structure
+  function getDate(receipt: any): string {
+    return receipt?.date || 'Unknown';
+  }
+
   // Standardize category values using categoryMapping
   let categories = $derived(
     receipts.reduce(
@@ -53,7 +83,7 @@
 
   let totalAmount = $derived(
     receipts.reduce((sum, receipt) => {
-      const total = receipt.total ? parseFloat(receipt.total.toString()) : 0;
+      const total = getTotal(receipt) ? parseFloat(getTotal(receipt).toString()) : 0;
       return sum + (isNaN(total) ? 0 : total);
     }, 0)
   );
@@ -246,10 +276,10 @@
                 <tbody>
                   {#each (selectedCategory ? filteredReceipts : receipts).slice(0, 5) as receipt, i}
                     <tr class="border-b hover:bg-muted/50">
-                      <td class="px-4 py-2">{receipt.merchantName || 'Unknown'}</td>
+                      <td class="px-4 py-2">{getMerchantName(receipt)}</td>
                       <td class="px-4 py-2">{getStandardCategory(receipt.category)}</td>
-                      <td class="px-4 py-2">{receipt.date || 'Unknown'}</td>
-                      <td class="px-4 py-2 text-right">{receipt.total || '0.00'}</td>
+                      <td class="px-4 py-2">{getDate(receipt)}</td>
+                      <td class="px-4 py-2 text-right">{getTotal(receipt)}</td>
                     </tr>
                   {/each}
                 </tbody>

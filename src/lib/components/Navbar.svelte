@@ -59,9 +59,9 @@
       <Sheet.Header><Sheet.SheetTitle class="text-2xl">FinPal</Sheet.SheetTitle></Sheet.Header>
 
       <div class="children:font-lg my-2 flex flex-col gap-10">
-        <a href="/#/" class=" text-lg font-medium transition-colors hover:text-primary">
+        <!-- <a href="/#/" class=" text-lg font-medium transition-colors hover:text-primary">
           Dashboard
-        </a>
+        </a> -->
         <a href="/#/receipts" class="text-lg font-medium transition-colors hover:text-primary">
           Receipts
         </a>
@@ -108,7 +108,7 @@
 
     <!-- Nav Links -->
     <nav class="mx-auto hidden items-center justify-evenly gap-8 px-6 lg:flex">
-      <a href="/#/" class="text-sm font-medium transition-colors hover:text-primary"> Dashboard </a>
+      <!-- <a href="/#/" class="text-sm font-medium transition-colors hover:text-primary"> Dashboard </a> -->
       <a href="/#/receipts" class="text-sm font-medium transition-colors hover:text-primary">
         Receipts
       </a>

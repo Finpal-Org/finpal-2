@@ -74,12 +74,25 @@
   }
 
   // Helper function to remove dollar sign if present
-  function removeSign(value: string | undefined): string {
+  function removeSign(value: string | number | undefined): string {
     if (!value) return '';
     // Convert any Arabic/Persian numerals to English before processing
-    const englishValue = convertArabicToEnglishNumbers(value);
+    const englishValue = convertArabicToEnglishNumbers(String(value));
     // Remove $ and any non-numeric characters except decimal point
     return String(englishValue).replace(/[^\d.]/g, '');
+  }
+
+  // Get items array from either structure for displaying
+  function getDisplayItems() {
+    if (receipt.line_items && receipt.line_items.length > 0) {
+      return receipt.line_items;
+    }
+    return receipt.items || [];
+  }
+
+  // Function to get warranty status for an item
+  function getItemWarranty(item: any) {
+    return item.warranty || { hasWarranty: false, periodMonths: 12 };
   }
 
   // Function to handle warranty settings for an item
@@ -87,13 +100,15 @@
     index: number,
     hasWarranty: boolean,
     periodValue: number | 'other',
+
     isPeriodInDays = false
   ) {
-    if (!receipt.items || !receipt.items[index]) return;
+    const items = getDisplayItems();
+    if (!items || !items[index]) return;
 
-    // Create warranty object if it doesn't exist
-    if (!receipt.items[index].warranty) {
-      receipt.items[index].warranty = {
+    // Initialize warranty if it doesn't exist
+    if (!items[index].warranty) {
+      items[index].warranty = {
         hasWarranty: false,
         periodMonths: 12,
         expiryDate: '',
@@ -101,28 +116,29 @@
       };
     }
 
-    receipt.items[index].warranty.hasWarranty = hasWarranty;
-    receipt.items[index].warranty.isCustomPeriodInDays = isPeriodInDays;
+    const warranty = items[index].warranty;
+    warranty.hasWarranty = hasWarranty;
+    warranty.isCustomPeriodInDays = isPeriodInDays;
 
     if (periodValue === 'other') {
-      receipt.items[index].warranty.periodMonths = 'other';
-      receipt.items[index].warranty.expiryDate = undefined;
+      warranty.periodMonths = 'other';
+      warranty.expiryDate = undefined;
     } else {
       // If the period is in months, convert to days for calculation
       const periodDays = isPeriodInDays ? periodValue : monthsToDays(periodValue);
 
       // Store the original period value (could be months or days)
-      receipt.items[index].warranty.periodMonths = periodValue;
+      warranty.periodMonths = periodValue;
 
       // Calculate expiry date if warranty is enabled
       if (hasWarranty) {
-        receipt.items[index].warranty.expiryDate = calculateWarrantyExpiry(
+        warranty.expiryDate = calculateWarrantyExpiry(
           receipt.date,
           receipt.createdTime,
           periodDays
         );
       } else {
-        receipt.items[index].warranty.expiryDate = undefined;
+        warranty.expiryDate = undefined;
       }
     }
 
@@ -131,15 +147,17 @@
 
   // Get warranty status display class (for color indicators)
   function getWarrantyStatusClass(item: any): string {
-    if (!item.warranty || !item.warranty.hasWarranty) {
+    const warranty = getItemWarranty(item);
+
+    if (!warranty.hasWarranty) {
       return 'text-muted-foreground';
     }
 
-    if (!item.warranty.expiryDate) {
+    if (!warranty.expiryDate) {
       return 'text-yellow-500';
     }
 
-    const daysRemaining = getWarrantyDaysRemaining(item.warranty.expiryDate);
+    const daysRemaining = getWarrantyDaysRemaining(warranty.expiryDate);
 
     if (daysRemaining < 0) {
       return 'text-red-500'; // Expired
@@ -152,24 +170,26 @@
 
   // Get human-readable warranty status
   function getWarrantyStatus(item: any): string {
-    if (!item.warranty || !item.warranty.hasWarranty) {
+    const warranty = getItemWarranty(item);
+
+    if (!warranty.hasWarranty) {
       return 'No Warranty';
     }
 
-    if (!item.warranty.expiryDate) {
+    if (!warranty.expiryDate) {
       return 'Warranty Active';
     }
 
-    const daysRemaining = getWarrantyDaysRemaining(item.warranty.expiryDate);
+    const daysRemaining = getWarrantyDaysRemaining(warranty.expiryDate);
 
     if (daysRemaining < 0) {
-      return `Expired (${item.warranty.expiryDate})`;
+      return `Expired (${warranty.expiryDate})`;
     } else if (daysRemaining === 0) {
       return 'Expires today';
     } else if (daysRemaining === 10) {
-      return '10 day remaining (' + item.warranty.expiryDate + ')';
+      return '10 day remaining (' + warranty.expiryDate + ')';
     } else {
-      return `${daysRemaining} days remaining (${item.warranty.expiryDate})`;
+      return `${daysRemaining} days remaining (${warranty.expiryDate})`;
     }
   }
 
@@ -449,19 +469,19 @@
                         </Table.Row>
                       {/if}
 
-                      {#if hasValue(receipt?.countryRegion)}
+                      {#if hasValue((receipt as any)?.countryRegion)}
                         <Table.Row>
                           <Table.Cell class="font-medium">Country</Table.Cell>
-                          <Table.Cell>{receipt.countryRegion}</Table.Cell>
+                          <Table.Cell>{(receipt as any).countryRegion}</Table.Cell>
                         </Table.Row>
                       {/if}
 
-                      {#if receipt?.taxDetailsArray && receipt.taxDetailsArray.length > 0}
+                      {#if (receipt as any)?.taxDetailsArray && (receipt as any).taxDetailsArray.length > 0}
                         <Table.Row>
                           <Table.Cell class="font-medium">Tax Details</Table.Cell>
                           <Table.Cell>
                             <div class="space-y-2">
-                              {#each receipt.taxDetailsArray as taxDetail, index}
+                              {#each (receipt as any).taxDetailsArray as taxDetail, index}
                                 <div class="rounded bg-secondary/30 p-1 text-sm">
                                   {#if taxDetail.description}
                                     <div>
@@ -504,7 +524,7 @@
                       <Table.Head>Currency</Table.Head>
                       <Table.Head>Amount</Table.Head>
                       <Table.Head>Warranty</Table.Head>
-                      {#if receipt.items?.some((item) => item?.warranty?.hasWarranty)}
+                      {#if getDisplayItems().some((item) => getItemWarranty(item).hasWarranty)}
                         <Table.Head>Period</Table.Head>
                       {/if}
                       <Table.Head>Status</Table.Head>
@@ -512,22 +532,14 @@
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    <!--todo remove Debug line -->
-                    <!-- {#if receipt.items && receipt.items.length > 0}
-                      <Table.Row>
-                        <Table.Cell class="text-xs text-muted-foreground">
-                          Debug: {JSON.stringify(receipt.items[0])}
-                        </Table.Cell>
-                      </Table.Row>
-                    {/if} -->
-                    {#if receipt.items && receipt.items.length > 0}
-                      {#each receipt.items as item, index}
+                    {#if getDisplayItems().length > 0}
+                      {#each getDisplayItems() as item, index}
                         <Table.Row>
                           <Table.Cell>{item?.description || 'unknown'}</Table.Cell>
                           <Table.Cell>{item?.quantity || '-'}</Table.Cell>
-                          <!-- todo receipt currency != item currency -->
+                          <!-- Currency display -->
                           <Table.Cell class="text-center">
-                            {#if item?.currency === 'USD'}
+                            {#if item?.currency === 'USD' || receipt?.currency === 'USD'}
                               $
                             {:else}
                               <div class="h m-0 flex items-center justify-center">
@@ -550,20 +562,21 @@
                               </div>
                             {/if}
                           </Table.Cell>
-                          <Table.Cell>{item?.amount || 'unknown'}</Table.Cell>
+                          <Table.Cell>{item?.amount || item?.total || 'unknown'}</Table.Cell>
                           <Table.Cell>
                             <Select.Root
-                              selected={item?.warranty?.hasWarranty
+                              selected={getItemWarranty(item).hasWarranty
                                 ? { value: 'yes', label: 'Yes' }
                                 : { value: 'no', label: 'No' }}
                               onSelectedChange={(selected) => {
                                 if (selected) {
                                   const hasWarranty = selected.value === 'yes';
-                                  const period = item?.warranty?.periodMonths || 12;
+                                  const period = getItemWarranty(item).periodMonths || 12;
                                   setItemWarranty(index, hasWarranty, period);
                                 }
                               }}
                             >
+                              <!--todo make has warranty be saved with its expiry date, optionally add simple notifcation once in app locally  for user if <10 remaining. do it simply first maybe a i icon on corner of receipt or simple notifcation icon in @navbar  -->
                               <Select.Trigger>
                                 <Select.Value placeholder="Has Warranty" />
                               </Select.Trigger>
@@ -573,27 +586,27 @@
                               </Select.Content>
                             </Select.Root>
                           </Table.Cell>
-                          {#if item?.warranty?.hasWarranty}
+                          {#if getItemWarranty(item).hasWarranty}
                             <Table.Cell>
                               <Select.Root
-                                selected={item?.warranty?.periodMonths
+                                selected={getItemWarranty(item).periodMonths
                                   ? {
                                       value:
-                                        typeof item.warranty.periodMonths === 'string'
-                                          ? item.warranty.periodMonths
-                                          : item.warranty.periodMonths.toString(),
+                                        typeof getItemWarranty(item).periodMonths === 'string'
+                                          ? getItemWarranty(item).periodMonths
+                                          : getItemWarranty(item).periodMonths.toString(),
                                       label:
-                                        typeof item.warranty.periodMonths === 'string' &&
-                                        item.warranty.periodMonths === 'other'
+                                        typeof getItemWarranty(item).periodMonths === 'string' &&
+                                        getItemWarranty(item).periodMonths === 'other'
                                           ? 'Custom'
-                                          : item.warranty?.isCustomPeriodInDays
-                                            ? `${item.warranty.periodMonths} days`
-                                            : `${item.warranty.periodMonths} months`
+                                          : getItemWarranty(item).isCustomPeriodInDays
+                                            ? `${getItemWarranty(item).periodMonths} days`
+                                            : `${getItemWarranty(item).periodMonths} months`
                                     }
                                   : { value: '12', label: '12 M' }}
                                 onSelectedChange={(selected) => {
                                   if (selected) {
-                                    const hasWarranty = item?.warranty?.hasWarranty || false;
+                                    const hasWarranty = getItemWarranty(item).hasWarranty || false;
 
                                     if (selected.value === 'other') {
                                       // Open custom days dialog instead of setting directly
@@ -616,13 +629,13 @@
                                 </Select.Content>
                               </Select.Root>
                             </Table.Cell>
-                          {:else if receipt.items?.some((i) => i?.warranty?.hasWarranty)}
+                          {:else if getDisplayItems().some((i) => getItemWarranty(i).hasWarranty)}
                             <Table.Cell></Table.Cell>
                           {/if}
                           <Table.Cell class={getWarrantyStatusClass(item)}>
                             {getWarrantyStatus(item)}
                           </Table.Cell>
-                          <!-- todo make this img clicable to expand in dialog if possible -->
+                          <!-- Image cell -->
                           <Table.Cell>
                             <div
                               class="cursor-pointer"

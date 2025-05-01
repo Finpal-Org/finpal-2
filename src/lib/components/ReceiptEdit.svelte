@@ -29,18 +29,41 @@
   let currentItemIndex = -1;
   let customDaysValue = '';
 
+  // Get items array from either structure for editing
+  function getEditableItems() {
+    // Convert line_items to match the expected format if available
+    if (receipt.line_items && receipt.line_items.length > 0) {
+      return receipt.line_items.map((item: any) => ({
+        description: item.description || '',
+        amount: item.total || '',
+        quantity: item.quantity || '',
+        id: item.id || '',
+        currency: receipt.currency || 'SAR',
+        warranty: item.warranty || {
+          hasWarranty: false,
+          periodMonths: 12,
+          expiryDate: undefined,
+          isCustomPeriodInDays: false
+        }
+      }));
+    }
+
+    // Otherwise use the legacy items array
+    return receipt.items || [];
+  }
+
   // Form state - only include fields from ReceiptData interface
   let formData = $state({
-    merchantName: receipt?.merchantName || '',
+    merchantName: receipt?.vendor?.name || receipt?.merchantName || '',
     category: receipt?.category || '',
-    phone: receipt?.phone || '',
+    phone: receipt?.vendor?.phone || receipt?.phone || '',
     date: receipt?.date || '',
     time: receipt?.time || '',
     total: receipt?.total || '',
-    totalTax: receipt?.totalTax || '',
+    totalTax: receipt?.tax || receipt?.totalTax || '',
     subtotal: receipt?.subtotal || '',
-    address: receipt?.address || '',
-    items: receipt?.items || []
+    address: receipt?.vendor?.address || receipt?.address || '',
+    items: getEditableItems()
   });
 
   // Track custom warranty period inputs
@@ -78,15 +101,58 @@
   // Handle form submission
   async function handleSubmit(event: Event) {
     event.preventDefault();
-    // TODO: Add form validation
-    // TODO: Add API call to update receipt
-    console.log('Form submitted:', formData);
-    dispatch('save', formData);
 
-    // Show success message (in a real app, this would come after API response)
+    const updatedReceipt = {
+      ...receipt, // Keep any fields we didn't modify
+      // Handle both old and new structure
+      category: formData.category,
+      date: formData.date,
+      time: formData.time,
+      total: formData.total,
+      subtotal: formData.subtotal
+    };
+
+    // Update fields based on which structure the receipt uses
+    if (receipt.vendor) {
+      // New structure - update vendor object
+      updatedReceipt.vendor = {
+        ...(receipt.vendor || {}),
+        name: formData.merchantName,
+        address: formData.address,
+        phone: formData.phone
+      };
+      updatedReceipt.tax = formData.totalTax;
+
+      // Update line_items if they exist - convert back from our format
+      if (receipt.line_items) {
+        updatedReceipt.line_items = formData.items.map((item: any) => ({
+          id: item.id,
+          description: item.description,
+          quantity: item.quantity,
+          total: item.amount,
+          warranty: item.warranty
+        }));
+      }
+    } else {
+      // Old structure - update direct fields
+      updatedReceipt.merchantName = formData.merchantName;
+      updatedReceipt.address = formData.address;
+      updatedReceipt.phone = formData.phone;
+      updatedReceipt.totalTax = formData.totalTax;
+
+      // Update items if they exist
+      if (receipt.items) {
+        updatedReceipt.items = formData.items;
+      }
+    }
+
+    console.log('Form submitted:', updatedReceipt);
+    dispatch('save', updatedReceipt);
+
+    // Show success message
     alert('Receipt updated successfully');
 
-    // Close dialog by changing state
+    // Close dialog
     dialogOpen = false;
   }
 
@@ -296,19 +362,30 @@
                     <Table.Header>
                       <Table.Row>
                         <Table.Head>Property</Table.Head>
-                        <Table.Head>Value</Table.Head>
+                        <Table.Head>Current Value</Table.Head>
+                        <Table.Head>New Value</Table.Head>
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
                       <Table.Row>
                         <Table.Cell class="font-medium">Merchant Name</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.vendor?.name)
+                            ? receipt.vendor.name
+                            : hasValue(receipt?.merchantName)
+                              ? receipt.merchantName
+                              : '-'}</Table.Cell
+                        >
                         <Table.Cell>
-                          <Input type="text" placeholder="N/A" bind:value={formData.merchantName} />
+                          <Input type="text" placeholder="" bind:value={formData.merchantName} />
                         </Table.Cell>
                       </Table.Row>
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Category</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.category) ? receipt.category : '-'}</Table.Cell
+                        >
                         <Table.Cell>
                           <Select.Root
                             selected={formData.category
@@ -321,7 +398,7 @@
                             }}
                           >
                             <Select.Trigger class="w-full">
-                              <Select.Value placeholder="N/A" />
+                              <Select.Value placeholder="" />
                             </Select.Trigger>
                             <Select.Content>
                               {#each standardCategories as category}
@@ -336,8 +413,9 @@
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Date</Table.Cell>
+                        <Table.Cell>{hasValue(receipt?.date) ? receipt.date : '-'}</Table.Cell>
                         <Table.Cell>
-                          <Input type="date" bind:value={formData.date} placeholder="N/A" />
+                          <Input type="date" bind:value={formData.date} placeholder="" />
                         </Table.Cell>
                       </Table.Row>
 
@@ -347,25 +425,47 @@
                           <Table.Cell
                             >{new Date(receipt.createdTime).toLocaleDateString()}</Table.Cell
                           >
+                          <Table.Cell
+                            >{new Date(receipt.createdTime).toLocaleDateString()}</Table.Cell
+                          >
                         </Table.Row>
                       {/if}
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Address</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.vendor?.address)
+                            ? receipt.vendor.address
+                            : hasValue(receipt?.address)
+                              ? receipt.address
+                              : '-'}</Table.Cell
+                        >
                         <Table.Cell>
-                          <Input type="text" bind:value={formData.address} placeholder="N/A" />
+                          <Input type="text" bind:value={formData.address} placeholder="" />
                         </Table.Cell>
                       </Table.Row>
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Contact</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.vendor?.phone)
+                            ? receipt.vendor.phone
+                            : hasValue(receipt?.phone)
+                              ? receipt.phone
+                              : '-'}</Table.Cell
+                        >
                         <Table.Cell>
-                          <Input type="tel" bind:value={formData.phone} placeholder="N/A" />
+                          <Input type="tel" bind:value={formData.phone} placeholder="" />
                         </Table.Cell>
                       </Table.Row>
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Payment Method</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.payment?.method)
+                            ? receipt.payment.method
+                            : '-'}</Table.Cell
+                        >
                         <Table.Cell>
                           <Select.Root
                             selected={{ value: 'Card', label: 'Card' }}
@@ -374,7 +474,7 @@
                             }}
                           >
                             <Select.Trigger class="w-full">
-                              <Select.Value placeholder="N/A" />
+                              <Select.Value placeholder="" />
                             </Select.Trigger>
                             <Select.Content>
                               <Select.Item value="Card">Card</Select.Item>
@@ -386,11 +486,18 @@
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Tax</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.tax)
+                            ? receipt.tax
+                            : hasValue(receipt?.totalTax)
+                              ? receipt.totalTax
+                              : '-'}</Table.Cell
+                        >
                         <Table.Cell class="flex items-center gap-2">
                           <Input
                             type="number"
                             bind:value={formData.totalTax}
-                            placeholder="N/A"
+                            placeholder=""
                             class="w-full"
                           />
                           <span>
@@ -418,11 +525,14 @@
 
                       <Table.Row>
                         <Table.Cell class="font-medium">Subtotal</Table.Cell>
+                        <Table.Cell
+                          >{hasValue(receipt?.subtotal) ? receipt.subtotal : '-'}</Table.Cell
+                        >
                         <Table.Cell class="flex items-center gap-2">
                           <Input
                             type="number"
                             bind:value={formData.subtotal}
-                            placeholder="N/A"
+                            placeholder=""
                             class="w-full"
                           />
                           <span>
@@ -450,11 +560,14 @@
 
                       <Table.Row>
                         <Table.Cell class="text-xl font-medium">Total</Table.Cell>
+                        <Table.Cell class="text-xl"
+                          >{hasValue(receipt?.total) ? receipt.total : '-'}</Table.Cell
+                        >
                         <Table.Cell class="flex items-center gap-2 text-xl">
                           <Input
                             type="number"
                             bind:value={formData.total}
-                            placeholder="N/A"
+                            placeholder=""
                             class="w-full"
                           />
                           <span>
