@@ -19,6 +19,13 @@ export class MCPClient {
   }
 
   /**
+   * Get the current base API URL being used
+   */
+  getBaseUrl(): string {
+    return this.apiUrl;
+  }
+
+  /**
    * Connect to the AI backend server
    * The serverScriptPath param is kept for compatibility but not used
    */

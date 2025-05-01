@@ -13,6 +13,11 @@
   import { ArrowUp, Bot, User } from 'lucide-svelte';
   import { MCPClient } from './services/mcpService';
   import { onMount } from 'svelte';
+  // Import Chart.js directly (like in AnalysisPage.svelte)
+  import { Chart, registerables } from 'chart.js';
+
+  // Register Chart.js components
+  Chart.register(...registerables);
 
   // Create our API client
   let apiClient: MCPClient; //the api variable
@@ -66,44 +71,17 @@
   let userInput = '';
   let isLoading = false;
   let isThinking = false;
+  let thinkingTimeout: ReturnType<typeof setTimeout> | null = null;
+  // For debug purposes
+  let rawResponse = '';
 
-  // Simple function to initialize charts after content is added to DOM
-  function enableCharts() {
-    // Find all chart script tags and execute them
+  // Function to scroll to bottom of message list
+  function scrollToBottom() {
     setTimeout(() => {
-      // Destroy any existing charts first to prevent "Canvas is already in use" errors
-      try {
-        // Check if Chart.js is available - need to use any type to avoid TypeScript errors
-        const ChartJS = (window as any).Chart;
-        if (ChartJS && document.getElementById('finpal-chart')) {
-          const existingChart = ChartJS.getChart('finpal-chart');
-          if (existingChart) {
-            existingChart.destroy();
-            console.log('Destroyed existing chart');
-          }
-        }
-      } catch (e) {
-        console.error('Error checking for existing charts:', e);
+      const messageContainer = document.querySelector('.h-full.pr-4');
+      if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
       }
-
-      const chartScripts = document.querySelectorAll(
-        'script[data-chart="true"]:not([data-executed="true"])'
-      );
-      chartScripts.forEach((script) => {
-        try {
-          // Mark script as executed to prevent multiple executions
-          script.setAttribute('data-executed', 'true');
-          // Safe execution using Function constructor instead of eval
-          if (script.textContent) {
-            console.log('About to execute script:', script.textContent); // Debug
-            const executeScript = new Function(script.textContent);
-            executeScript();
-          }
-        } catch (error) {
-          console.error('Error executing chart script:', error);
-          console.log('Problem script content:', script.textContent); // Debug
-        }
-      });
     }, 100);
   }
 
@@ -112,23 +90,129 @@
     if (!html) return html;
 
     // For chart data, take a simpler approach
-    if (html.includes('finpal-chart') && html.includes('<script>')) {
-      // Simply remove the DOMContentLoaded event listener and keep the rest
+    if (html.includes('chart') && html.includes('<script>')) {
+      // Add data-chart attribute to all chart scripts
+      html = html.replace(/<script>\s*(?=.*chart)/g, '<script data-chart="true">');
+
+      // Remove any document.addEventListener('DOMContentLoaded'...) wrappers
       html = html.replace(
         /document\.addEventListener\(['"]DOMContentLoaded['"],\s*function\s*\(\)\s*\{/g,
-        '// Direct initialization: '
+        '// Initialization: '
       );
 
       // Also remove the closing part of the event listener
       html = html.replace(/\}\s*\)\s*;(?=\s*<\/script>)/g, '');
 
-      // Add data-chart attribute to all scripts
-      html = html.replace(/<script>/g, '<script data-chart="true">');
+      // Replace direct Chart references with window.Chart to ensure it's accessible
+      html = html.replace(/new Chart\(/g, 'new Chart(');
+
+      // Add a fallback message div in case the chart fails to load
+      if (html.includes('<canvas')) {
+        const canvasIdRegex = /id=["']([^"']+)["']/;
+        const match = html.match(canvasIdRegex);
+
+        if (match && match[1]) {
+          const chartId = match[1];
+          const fallbackId = `chart-fallback-${chartId.replace('finpal-chart-', '')}`;
+
+          const fallbackDiv = `
+            <div id="${fallbackId}" class="hidden flex flex-col items-center justify-center p-4 text-gray-500 border border-gray-300 rounded-md" style="display: none; min-height: 200px;">
+              <span class="text-sm">Chart failed to load. Please try again.</span>
+              <button class="mt-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" onclick="document.getElementById('${fallbackId}').style.display='none'; enableCharts();">Retry</button>
+            </div>
+          `;
+
+          // Add the fallback div after the canvas
+          html = html.replace(
+            new RegExp(`(<canvas[^>]*id=["']${chartId}["'][^>]*>.*?</canvas>)`, 's'),
+            '$1' + fallbackDiv
+          );
+        }
+      }
 
       console.log('Processed chart script');
     }
 
     return html;
+  }
+
+  // Use a longer timeout to ensure DOM elements are fully rendered
+  function enableCharts() {
+    setTimeout(() => {
+      try {
+        // Find all chart canvas elements with our new ID pattern
+        const chartCanvases = document.querySelectorAll('canvas[id^="finpal-chart-"]');
+
+        if (chartCanvases.length === 0) {
+          console.log('No chart canvases found in DOM');
+
+          // Also check for legacy chart elements
+          const legacyChartElement = document.getElementById('finpal-chart');
+          if (legacyChartElement) {
+            try {
+              const existingChart = Chart.getChart('finpal-chart');
+              if (existingChart) {
+                existingChart.destroy();
+                console.log('Destroyed existing legacy chart');
+              }
+            } catch (error) {
+              console.error('Error cleaning up legacy chart:', error);
+            }
+          }
+        } else {
+          console.log(`Found ${chartCanvases.length} chart canvases`);
+
+          // Process each chart canvas
+          chartCanvases.forEach((canvas) => {
+            const chartId = canvas.id;
+
+            try {
+              // Clean up any existing chart on this canvas
+              const existingChart = Chart.getChart(chartId);
+              if (existingChart) {
+                console.log(`Destroying existing chart: ${chartId}`);
+                existingChart.destroy();
+              }
+            } catch (error) {
+              console.error(`Error cleaning up chart ${chartId}:`, error);
+            }
+          });
+        }
+
+        // Execute chart scripts
+        const chartScripts = document.querySelectorAll(
+          'script[data-chart="true"]:not([data-executed="true"])'
+        );
+
+        console.log(`Found ${chartScripts.length} chart scripts to execute`);
+
+        chartScripts.forEach((script) => {
+          try {
+            // Mark script as executed to prevent multiple executions
+            script.setAttribute('data-executed', 'true');
+
+            // Create a function with Chart available in its scope
+            // The key fix: Pass the Chart constructor as an argument to the new Function
+            const scriptContent = script.textContent || '';
+            const executeScript = new Function('Chart', scriptContent);
+
+            // Execute the script with Chart passed as an argument
+            executeScript(Chart);
+
+            console.log('Executed chart script successfully');
+          } catch (error) {
+            console.error('Error executing chart script:', error);
+            // Show fallback message for any chart that fails
+            const fallbackElements = document.querySelectorAll('[id^="chart-fallback-"]');
+            fallbackElements.forEach((el) => {
+              el.setAttribute('style', 'display: flex');
+            });
+          }
+        });
+      } catch (e) {
+        console.error('Error initializing charts:', e);
+      }
+    }, 300); // Increased timeout for better reliability
   }
 
   // Filter to separate tool usage (thinking) from actual response
@@ -217,6 +301,7 @@
           content: 'Connecting to backend... Please give me a minute...'
         }
       ];
+      scrollToBottom();
       return;
     }
 
@@ -231,9 +316,36 @@
       // Add user message to the chat
       messages = [...messages, { role: 'user', content: messageToSend }];
       userInput = '';
+      scrollToBottom();
+
+      // Set a timeout for long-running requests (30 seconds)
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+      }
+
+      thinkingTimeout = setTimeout(() => {
+        if (isThinking) {
+          // Add a message to inform user that processing is taking longer than expected
+          messages = [
+            ...messages,
+            {
+              role: 'assistant',
+              content:
+                "I'm still working on your request. This might take a moment for complex analyses or visualizations..."
+            }
+          ];
+          scrollToBottom();
+        }
+      }, 30000); // 30 seconds
 
       // Send to direct context endpoint
       const response = await apiClient.sendDirectContextMessage(messageToSend);
+
+      // Clear the timeout
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+        thinkingTimeout = null;
+      }
 
       // Store raw response for debug purposes
       rawResponse = JSON.stringify(response, null, 2);
@@ -256,20 +368,26 @@
               "I'm sorry, but I've hit a technical limit with the conversation size. Let me reset our chat to continue helping you."
           }
         ];
+        scrollToBottom();
 
         // Reset the conversation on the backend
-        const resetResult = await apiClient.resetConversation();
-        console.log('Conversation reset result:', resetResult);
+        try {
+          const resetResult = await apiClient.resetConversation();
+          console.log('Conversation reset result:', resetResult);
 
-        // Tell the user what happened
-        messages = [
-          ...messages,
-          {
-            role: 'assistant',
-            content:
-              "I've reset our conversation. You can continue asking questions and I'll remember only this most recent context. What would you like to know?"
-          }
-        ];
+          // Tell the user what happened
+          messages = [
+            ...messages,
+            {
+              role: 'assistant',
+              content:
+                "I've reset our conversation. You can continue asking questions and I'll remember only this most recent context. What would you like to know?"
+            }
+          ];
+          scrollToBottom();
+        } catch (resetError) {
+          console.error('Error resetting conversation:', resetError);
+        }
 
         isThinking = false;
         isLoading = false;
@@ -285,15 +403,26 @@
       // Initialize any charts in the response
       enableCharts();
 
+      // Make sure to scroll to see the new message
+      scrollToBottom();
+
       isThinking = false;
     } catch (error) {
       console.error('Error processing message:', error);
+
+      // Clear the timeout if it exists
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+        thinkingTimeout = null;
+      }
+
       messages = [
         ...messages,
         { role: 'assistant', content: 'Sorry, I encountered an error processing your request.' }
       ];
       rawResponse = JSON.stringify(error, null, 2);
       isThinking = false;
+      scrollToBottom();
     } finally {
       isLoading = false;
     }
@@ -312,19 +441,17 @@
     showDebugInfo = !showDebugInfo;
   }
 
-  // For debug purposes
-  let rawResponse = '';
-
   // Connect to the backend when the component loads
   onMount(() => {
     initConnection();
+
+    return () => {
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+      }
+    };
   });
 </script>
-
-<svelte:head>
-  <!-- Load Chart.js for visualizations -->
-  <script src="/scripts/chart.min.js"></script>
-</svelte:head>
 
 <div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-2xl flex-col px-4 py-8">
   <Card class="flex h-full flex-col border-0 shadow-lg">
@@ -428,17 +555,17 @@
                           <span>View AI thought process</span>
                         </summary>
                         <pre
-                          class="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-gray-200 p-2 text-xs">{message.thinking}</pre>
+                          class="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-muted/50 p-2 text-xs text-white">{message.thinking}</pre>
                       </details>
                     </div>
                   {/if}
 
-                  <!-- Main message content -->
+                  <!--! Main message content -->
                   <div
                     class={`rounded-lg p-3 text-sm ${
                       message.role === 'user'
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
+                        : 'bg-muted text-white'
                     }`}
                   >
                     {@html message.content}
@@ -457,7 +584,7 @@
                   <Bot class="h-3.5 w-3.5" />
                 </div>
                 <div
-                  class="rounded-lg border-l-4 border-green-400 bg-gray-200 p-3 text-xs text-gray-600"
+                  class="rounded-lg border-l-4 border-green-400 bg-muted p-3 text-xs text-gray-600"
                 >
                   <div class="flex items-center gap-2">
                     <span>AI thinking...</span>

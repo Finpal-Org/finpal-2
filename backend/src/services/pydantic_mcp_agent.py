@@ -336,7 +336,7 @@ USE WHEN: User wants overall spending insights, monthly summaries, budget review
     
     <h3 class="mb-2 mt-4 text-blue-600 font-semibold">📈 SPENDING BREAKDOWN</h3>
     <div class="ml-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-3 border rounded bg-white">
+        <div class="p-3 border rounded bg-muted">
             <h4 class="font-medium text-gray-700">Top Categories</h4>
             <ul class="pl-5 list-disc">
                 <li>[Category 1] - [percentage]</li>
@@ -344,7 +344,7 @@ USE WHEN: User wants overall spending insights, monthly summaries, budget review
                 <li>[Category 3] - [percentage]</li>
             </ul>
         </div>
-        <div class="p-3 border rounded bg-white">
+        <div class="p-3 border rounded bg-muted">
             <h4 class="font-medium text-gray-700">Monthly Trend</h4>
             <p>[Brief trend description with comparative language]</p>
         </div>
@@ -414,7 +414,7 @@ USE WHEN: User is asking for comparisons between merchants, categories, time per
     <p class="ml-5">[Summary of what's being compared and key finding]</p>
     
     <div class="ml-5 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-3 border rounded bg-white">
+        <div class="p-3 border rounded bg-muted">
             <h4 class="font-medium text-gray-700">[First item]</h4>
             <ul class="pl-5 list-disc">
                 <li>[Metric 1]: [Value]</li>
@@ -422,7 +422,7 @@ USE WHEN: User is asking for comparisons between merchants, categories, time per
                 <li>[Metric 3]: [Value]</li>
             </ul>
         </div>
-        <div class="p-3 border rounded bg-white">
+        <div class="p-3 border rounded bg-muted">
             <h4 class="font-medium text-gray-700">[Second item]</h4>
             <ul class="pl-5 list-disc">
                 <li>[Metric 1]: [Value]</li>
@@ -458,58 +458,58 @@ USE WHEN: User requests visualizations, charts, or graphical representations of 
     <h3 class="mb-2 text-yellow-600 font-semibold">📊 DATA VISUALIZATION</h3>
     <p class="ml-5">[Brief description of what the visualization shows]</p>
     
-    <div class="ml-5 mt-4 p-3 border rounded bg-white">
-        <div id="chart-container" style="width: 100%; height: 300px;">
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    // Create chart using Chart.js
-                    const ctx = document.getElementById('finpal-chart').getContext('2d');
-                    new Chart(ctx, {
-                        type: '[CHART_TYPE]', // bar, line, pie, doughnut, etc.
-                        data: {
-                            labels: [[LABELS]],
-                            datasets: [{
-                                label: '[DATASET_LABEL]',
-                                data: [[DATA_VALUES]],
-                                backgroundColor: [[COLORS]],
-                                borderColor: [[BORDER_COLORS]],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: '[CHART_TITLE]'
-                                },
-                                legend: {
-                                    display: true,
-                                    position: 'bottom'
-                                }
+    <div class="ml-5 mt-4 p-3 border rounded bg-muted">
+        <div id="chart-container-CHART_ID" style="width: 100%; height: 300px; position: relative;">
+            <canvas id="finpal-chart-CHART_ID"></canvas>
+            <div id="chart-fallback-CHART_ID" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; justify-content: center; align-items: center; background: rgba(255,255,255,0.8);">
+                Chart failed to load. Please try again.
+            </div>
+        </div>
+        <script data-chart="true">
+            // Direct chart initialization without DOMContentLoaded
+            try {
+                const chartId = 'finpal-chart-CHART_ID';
+                const ctx = document.getElementById(chartId).getContext('2d');
+                
+                // Create chart with default values
+                new Chart(ctx, {
+                    type: 'bar',  // Default to bar chart
+                    data: {
+                        labels: ['Category 1', 'Category 2', 'Category 3'],
+                        datasets: [{
+                            label: 'Data',
+                            data: [300, 200, 100],
+                            backgroundColor: ['rgba(75, 192, 192, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 99, 132, 0.2)'],
+                            borderColor: ['rgb(75, 192, 192)', 'rgb(54, 162, 235)', 'rgb(255, 99, 132)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Chart Title'
                             },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    title: {
-                                        display: true,
-                                        text: '[Y_AXIS_LABEL]'
-                                    }
-                                },
-                                x: {
-                                    title: {
-                                        display: true,
-                                        text: '[X_AXIS_LABEL]'
-                                    }
-                                }
+                            legend: {
+                                display: true,
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
                             }
                         }
-                    });
+                    }
                 });
-            </script>
-            <canvas id="finpal-chart"></canvas>
-        </div>
+                console.log('Chart initialized: ' + chartId);
+            } catch (err) {
+                console.error('Chart initialization error:', err);
+                document.getElementById('chart-fallback-CHART_ID').style.display = 'flex';
+            }
+        </script>
     </div>
     
     <h3 class="mb-2 mt-4 text-yellow-600 font-semibold">🔍 KEY INSIGHTS</h3>
