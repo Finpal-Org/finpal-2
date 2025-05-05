@@ -12,32 +12,48 @@
   import { ModeWatcher, toggleMode } from 'mode-watcher';
   import { onAuthStateChanged } from '../firebase/fireAuth';
   import { onMount } from 'svelte';
+  import { push, location } from 'svelte-spa-router';
 
   // Authentication state
-  let isAuthenticated = false;
-  let userLoading = true;
+  let isAuthenticated = $state(false);
+  let userLoading = $state(true);
 
-  // Setup auth listener on mount
-  onMount(() => {
-    const unsubscribe = onAuthStateChanged((user) => {
-      isAuthenticated = !!user;
-      userLoading = false;
-    });
-
-    // Cleanup subscription on component destroy
-    return unsubscribe;
-  });
+  // Keep track of current location
+  let currentPath = $derived($location);
 
   // Routes configuration - conditionally include routes based on auth state
-  $: routes = {
-    '/': isAuthenticated ? Home : Auth,
+  let routes = $derived({
+    '/': isAuthenticated ? Receipt : Auth,
     '/receipts': isAuthenticated ? Receipt : Auth,
     '/aichat': isAuthenticated ? AiChat : Auth,
     '/analysis': isAuthenticated ? Analysis : Auth,
     '/reports': isAuthenticated ? ReportsPage : Auth,
     '/auth': Auth,
     '*': isAuthenticated ? Home : Auth
-  };
+  });
+
+  // Setup auth listener on mount
+  onMount(() => {
+    const unsubscribe = onAuthStateChanged((user) => {
+      const wasAuthenticated = isAuthenticated;
+      isAuthenticated = !!user;
+      userLoading = false;
+
+      // Handle auth state change navigations
+      if (!wasAuthenticated && isAuthenticated) {
+        // User just logged in
+        if (currentPath === '/auth' || currentPath === '/') {
+          push('/receipts');
+        }
+      } else if (wasAuthenticated && !isAuthenticated) {
+        // User just logged out
+        push('/auth');
+      }
+    });
+
+    // Cleanup subscription on component destroy
+    return unsubscribe;
+  });
 </script>
 
 <main>
@@ -58,11 +74,7 @@
       {/if}
 
       <!-- Main content -->
-      <div class=" mx-auto px-4 py-4">
-        {#if isAuthenticated}
-          <!-- Additional authenticated-only content can go here -->
-        {/if}
-
+      <div class="mx-auto px-4 py-4">
         <!-- Routing -->
         <Router {routes} />
       </div>

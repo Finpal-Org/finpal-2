@@ -23,7 +23,7 @@
   async function handleSignOut() {
     try {
       await signOut();
-      // Redirect will happen via App.svelte based on auth state
+      // App.svelte will handle navigation
     } catch (error: any) {
       console.error('Sign out error:', error);
     }

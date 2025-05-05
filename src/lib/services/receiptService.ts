@@ -4,6 +4,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebaseConfig';
 import { standardizeCategory } from '../utils/categoryMapping';
 import { uploadReceiptToStorage } from '../../../firebase/fireStorage.svelte';
+import { auth } from '../../../firebase/firebaseConfig';
 
 // Safe type assertion for environment variables
 
@@ -352,6 +353,16 @@ export function extractResults(result: any) {
 // Saves receipt data directly to Firestore without additional processing
 async function saveToFirestoreDirectly(data: any): Promise<string> {
   try {
+    // Get the current user ID
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      throw new Error('No user is logged in. Cannot save receipt.');
+    }
+
+    // Add the user ID to the receipt data
+    data.user_id = currentUser.uid;
+
     const docRef = await addDoc(collection(db, 'receipts'), data);
     // console.log('Receipt saved to Firestore with ID:', docRef.id);
     return docRef.id;

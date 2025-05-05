@@ -1,6 +1,15 @@
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  addDoc,
+  serverTimestamp,
+  where
+} from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { ReceiptData } from '../src/types';
+import { getCurrentUser } from './fireAuth';
 // import type ReceiptField from '../src/lib/Receipt.svelte';
 
 export let receipts: ReceiptData[] = $state([]); // init reactive receipts as empty array
@@ -10,17 +19,26 @@ const receiptCollection = collection(db, 'receipts'); //receipt collection ref
 export async function getReceipts() {
   //fetch receipts from firestore
   try {
-    // First get all receipts without filtering
-    const allReceiptsQuery = query(receiptCollection);
-    const allReceiptDocs = await getDocs(allReceiptsQuery);
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      console.log('No user logged in, cannot fetch receipts');
+      receipts.length = 0;
+      return;
+    }
+
+    // Get only receipts for the current user
+    const userReceiptsQuery = query(receiptCollection, where('user_id', '==', currentUser.uid));
+
+    const userReceiptDocs = await getDocs(userReceiptsQuery);
 
     // Clear current receipts
     receipts.length = 0;
 
-    // Process all receipts
+    // Process user's receipts
     const processedReceipts: ReceiptData[] = [];
 
-    allReceiptDocs.docs.forEach((doc) => {
+    userReceiptDocs.docs.forEach((doc) => {
       // Extract all the data first
       const rawData = doc.data();
 
@@ -104,22 +122,31 @@ export async function getReceipts() {
           ? typeof rawData.createdTime.toDate === 'function'
             ? rawData.createdTime.toDate()
             : new Date(rawData.createdTime)
-          : new Date(), // Handle different timestamp formats
+          : null, // Use null for receipts without createdTime
         imageUrl: rawData.imageUrl || rawData.receipt_image || '',
         user_id: rawData.user_id || ''
       };
 
       processedReceipts.push(safeReceipt);
     });
-    // sorting doesnt work, will need it added as filtering default later
-    // Sort by createdTime descending (newest first)
+
+    // Sort by createdTime (newest first), receipts without createdTime at the end
     processedReceipts.sort((a, b) => {
-      const dateA = a.createdTime instanceof Date ? a.createdTime : new Date(a.createdTime || 0);
-      const dateB = b.createdTime instanceof Date ? b.createdTime : new Date(b.createdTime || 0);
-      return dateB.getTime() - dateA.getTime();
+      // If both have createdTime, compare normally
+      if (a.createdTime && b.createdTime) {
+        const dateA = a.createdTime instanceof Date ? a.createdTime : new Date(a.createdTime);
+        const dateB = b.createdTime instanceof Date ? b.createdTime : new Date(b.createdTime);
+        return dateB.getTime() - dateA.getTime(); // newest first
+      }
+      // If a has no createdTime, put it at the end
+      if (!a.createdTime && b.createdTime) return 1;
+      // If b has no createdTime, put it at the end
+      if (a.createdTime && !b.createdTime) return -1;
+      // If neither has createdTime, keep original order
+      return 0;
     });
 
-    // Assign sorted receipts to state
+    // Add all processed receipts to the state array
     receipts.push(...processedReceipts);
 
     console.log(`Loaded ${receipts.length} receipts from Firestore`);
@@ -131,10 +158,17 @@ export async function getReceipts() {
 // Function to add a new receipt with image URL
 export async function addReceiptWithImage(receiptData: ReceiptData, imageUrl: string) {
   try {
-    // Add imageUrl to the receipt data
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('No user logged in. Cannot save receipt.');
+    }
+
+    // Add imageUrl and user_id to the receipt data
     const receiptWithImage = {
       ...receiptData,
       imageUrl,
+      user_id: currentUser.uid,
       createdTime: serverTimestamp()
     };
 

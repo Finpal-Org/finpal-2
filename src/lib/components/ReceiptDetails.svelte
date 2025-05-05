@@ -327,17 +327,17 @@
                         </Table.Row>
                       {/if}
 
-                      {#if hasValue(receipt?.address)}
-                        <Table.Row>
-                          <Table.Cell class="font-medium">Address</Table.Cell>
-                          <!-- address might not need arabic -> english numbers -->
-                          <Table.Cell
-                            >{receipt.address
-                              ? convertArabicToEnglishNumbers(receipt.address)
-                              : ''}</Table.Cell
-                          >
-                        </Table.Row>
-                      {/if}
+                      <!-- {#if hasValue(receipt?.vender?.address)} -->
+                      <Table.Row>
+                        <Table.Cell class="font-medium">Address</Table.Cell>
+                        <!-- address might not need arabic -> english numbers -->
+                        <Table.Cell
+                          >{receipt.vendor.address
+                            ? convertArabicToEnglishNumbers(receipt.vendor.address)
+                            : ''}</Table.Cell
+                        >
+                      </Table.Row>
+                      <!-- {/if} -->
 
                       {#if hasValue(receipt?.phone)}
                         <Table.Row>

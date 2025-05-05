@@ -163,30 +163,27 @@ def check_for_updates() -> bool:
         # On error, assume update needed
         return True
 
-def fetch_receipt_context(limit: int = 300, force_refresh: bool = False) -> str:
+def fetch_receipt_context(limit: int = 300, force_refresh: bool = False, user_id: str = None) -> str:
     """
-    Fetch raw receipt data from Firestore for context feeding.
+    Fetches receipts from Firestore and formats them for context.
     Uses caching to avoid unnecessary database calls.
     
     Args:
-        limit: Maximum number of receipts to retrieve (default: 300)
-        force_refresh: Force refresh the cache even if not expired
-
+        limit: Maximum number of receipts to fetch
+        force_refresh: Whether to force a refresh of the cache
+        user_id: Optional user ID to filter receipts by
         
     Returns:
-        str: Raw receipt data formatted as text
+        Formatted receipt context string
     """
-    # here is receipt context cache for cag
     global _context_cache, _last_refresh_time
     
-    try:
-        # Check if we have a cached version and if it's still valid
-        if not force_refresh and _context_cache is not None:
-            # Check if we need to update based on database changes in realtime
-            if not check_for_updates():
-                logger.info("Using cached receipt context (no updates found)")
-                return _context_cache
+    # Use cached version if available and not forcing refresh
+    if not force_refresh and _context_cache is not None and time.time() - _last_refresh_time < _cache_ttl:
+        logger.info("Using cached receipt context")
+        return _context_cache
         
+    try:
         # Initialize Firebase with timeout safety
         max_retries = 3
         retry_count = 0
@@ -215,8 +212,19 @@ def fetch_receipt_context(limit: int = 300, force_refresh: bool = False) -> str:
         # Query receipts collection using client SDK with a timeout
         try:
             receipts_ref = db.collection("receipts")
-            # Set a timeout for the operation
-            receipts_docs = receipts_ref.order_by("createdTime", direction=firestore.Query.DESCENDING).limit(limit).get(timeout=30)
+            
+            # Create base query
+            query = receipts_ref.order_by("createdTime", direction=firestore.Query.DESCENDING)
+            
+            # Filter by user_id if provided
+            if user_id:
+                query = query.where("user_id", "==", user_id)
+            
+            # Limit results
+            query = query.limit(limit)
+            
+            # Execute query with timeout
+            receipts_docs = query.get(timeout=60)
         except Exception as e:
             logger.error(f"Error querying receipts: {str(e)}")
             # If we have a cached version, return that on query error

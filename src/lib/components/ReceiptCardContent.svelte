@@ -101,7 +101,7 @@
     <!-- (auto-fit) stacks receipt in the row infinitly if there is space (350px each receipt) -->
     <div class="grid h-full grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-10">
       <div class="flex h-full justify-center">
-        <CardContent class="flex h-full w-full flex-col">
+        <CardContent class="flex h-full max-h-[800px] w-full max-w-md flex-col">
           <!-- Top section: Image and details -->
           <div class="flex-grow">
             <div
@@ -182,11 +182,11 @@
                   >{receipt.payment?.display_name ||
                     (receipt.payment && 'method' in receipt.payment
                       ? receipt.payment.method
-                      : 'Cash')}</span
+                      : 'Card')}</span
                 >
               </div>
 
-              {#if hasValue(receipt?.subtotal)}
+              {#if hasValue(receipt?.subtotal) && receipt.subtotal != 0}
                 <div class="flex justify-between gap-2">
                   <span class="text-muted-foreground">Subtotal</span>
                   <!-- make riyal curr conditional: if currency is SA || empty , otherwise give dollar sign -->

@@ -10,6 +10,18 @@
 // TaxDetails.*.Rate
 // TaxDetails.*.Description
 
+export interface UserProfile {
+  user_id: string;
+  creation_date: Date;
+  email: string;
+  full_name?: string;
+  profile_image_url?: string;
+  monthly_income?: number;
+  savings_percentage?: number;
+  did_complete_onboarding?: boolean;
+  did_visit_chatbot_screen?: boolean;
+}
+
 export interface ReceiptData {
   // Core fields matching the iOS structure
   id?: string;

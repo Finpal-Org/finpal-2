@@ -6,17 +6,16 @@ import {
   createUserWithEmailAndPassword as firebaseCreateUser,
   signInWithEmailAndPassword as firebaseSignIn,
   signOut as firebaseSignOut,
-  updateProfile,
+  updateProfile
 } from 'firebase/auth';
 import type { User, UserCredential } from 'firebase/auth';
+import { collection, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebaseConfig';
+import type { UserProfile } from '../src/types';
 
 //user details
-const emailInput: HTMLInputElement = document.getElementById(
-  'email'
-) as HTMLInputElement; //todo ts why string isnt viable?
-const passwordInput: HTMLInputElement = document.getElementById(
-  'password'
-) as HTMLInputElement;
+const emailInput: HTMLInputElement = document.getElementById('email') as HTMLInputElement; //todo ts why string isnt viable?
+const passwordInput: HTMLInputElement = document.getElementById('password') as HTMLInputElement;
 
 //Auth Buttons
 const signUpButton = document.getElementById('signUpButton');
@@ -35,15 +34,46 @@ const emailDisplayName: string = '';
 // Authentication service functions
 
 /**
- * Sign in with Google popup
- * @returns Promise resolving to user credentials
+ * - Create a user profile in Firestore
+ *  1 userId User ID from Firebase Auth
+ *  2 email User email
+ *  3 displayName Optional display name
+ *  4 Return Promise that resolves when the profile is created
  */
-export async function signInWithGoogle(): Promise<UserCredential> {
+export async function createUserProfile(
+  userId: string,
+  email: string,
+  displayName?: string
+): Promise<void> {
   try {
-    const googleProvider = new GoogleAuthProvider();
-    return await signInWithPopup(auth, googleProvider);
+    const userRef = doc(db, 'users', userId);
+
+    // Check if the user profile already exists
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      console.log('User Account already exists');
+      return;
+    }
+
+    // Create a new user profile
+    const userProfile: UserProfile = {
+      user_id: userId,
+      email: email,
+      full_name: displayName || email.split('@')[0],
+      creation_date: new Date(),
+      did_complete_onboarding: false,
+      did_visit_chatbot_screen: false
+    };
+
+    await setDoc(userRef, {
+      ...userProfile,
+      creation_date: serverTimestamp() // Use server timestamp for consistent timing
+    });
+
+    console.log('User profile created successfully');
   } catch (error) {
-    console.error('Error signing in with Google:', error);
+    console.error('Error creating user profile:', error);
     throw error;
   }
 }
@@ -67,8 +97,11 @@ export async function createUser(
     // Set display name if provided or use email username
     if (auth.currentUser) {
       await updateProfile(auth.currentUser, {
-        displayName: displayName || email.split('@')[0],
+        displayName: displayName || email.split('@')[0]
       });
+
+      // Create user profile in Firestore
+      await createUserProfile(auth.currentUser.uid, email, displayName || email.split('@')[0]);
     }
 
     return userCredential;
@@ -79,15 +112,37 @@ export async function createUser(
 }
 
 /**
+ * Sign in with Google popup
+ * @returns Promise resolving to user credentials
+ */
+export async function signInWithGoogle(): Promise<UserCredential> {
+  try {
+    const googleProvider = new GoogleAuthProvider();
+    const userCredential = await signInWithPopup(auth, googleProvider);
+
+    // Create user profile if it doesn't exist
+    if (userCredential.user) {
+      await createUserProfile(
+        userCredential.user.uid,
+        userCredential.user.email || '',
+        userCredential.user.displayName || undefined
+      );
+    }
+
+    return userCredential;
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    throw error;
+  }
+}
+
+/**
  * Sign in with email and password
  * @param email User email
  * @param password User password
  * @returns Promise resolving to user credentials
  */
-export async function signInWithEmail(
-  email: string,
-  password: string
-): Promise<UserCredential> {
+export async function signInWithEmail(email: string, password: string): Promise<UserCredential> {
   try {
     return await firebaseSignIn(auth, email, password);
   } catch (error) {
@@ -122,9 +177,7 @@ export function getCurrentUser(): User | null {
  * @param callback Function to call when auth state changes
  * @returns Unsubscribe function
  */
-export function onAuthStateChanged(
-  callback: (user: User | null) => void
-): () => void {
+export function onAuthStateChanged(callback: (user: User | null) => void): () => void {
   return firebaseOnAuthStateChanged(auth, callback);
 }
 
@@ -224,8 +277,7 @@ if (signOutButton) {
 //fetch user info
 onAuthStateChanged((user) => {
   //fire auth user name
-  const displayName: string =
-    user?.displayName || emailDisplayName.split('@')[0] || 'Guest'; //get all chars untill @ sign
+  const displayName: string = user?.displayName || emailDisplayName.split('@')[0] || 'Guest'; //get all chars untill @ sign
 
   //username element in html
   const userNameElement = document.getElementById('userName');

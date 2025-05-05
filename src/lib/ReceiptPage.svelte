@@ -16,6 +16,8 @@
   import ReceiptEdit from './components/ReceiptEdit.svelte';
   import ReceiptDetails from './components/ReceiptDetails.svelte';
   import ReceiptCardContent from './components/ReceiptCardContent.svelte';
+  import * as Select from './components/ui/select';
+  import ChevronDown from 'lucide-svelte/icons/chevron-down';
 
   // Tilt action for card hover effect
   function tilt(node: HTMLElement, options = { max: 15, scale: 1.03, speed: 300 }) {
@@ -56,14 +58,47 @@
     };
   }
 
-  // init loading to false
+  // Initialize loading state
   let isLoading = $state(false);
+  // Track sort order
+  let sortOrder = $state('newest');
+
+  // Simple sort function to sort receipts by createdTime
+  function sortReceipts() {
+    if (!receipts || receipts.length === 0) return;
+
+    receipts.sort((a, b) => {
+      // If both have createdTime, compare normally
+      if (a.createdTime && b.createdTime) {
+        const dateA = a.createdTime instanceof Date ? a.createdTime : new Date(a.createdTime);
+        const dateB = b.createdTime instanceof Date ? b.createdTime : new Date(b.createdTime);
+        return sortOrder === 'newest'
+          ? dateB.getTime() - dateA.getTime() // newest first
+          : dateA.getTime() - dateB.getTime(); // oldest first
+      }
+      // If a has no createdTime, put it at the end
+      if (!a.createdTime && b.createdTime) return 1;
+      // If b has no createdTime, put it at the end
+      if (a.createdTime && !b.createdTime) return -1;
+      // If neither has createdTime, keep original order
+      return 0;
+    });
+  }
+
+  // Toggle sort order
+  function toggleSortOrder(order: string) {
+    if (order !== sortOrder) {
+      sortOrder = order;
+      sortReceipts();
+    }
+  }
 
   onMount(async () => {
-    // on mount, wait to get receipts
     try {
       isLoading = true;
       await getReceipts();
+      // Sort according to current sort order
+      sortReceipts();
     } catch (err) {
       console.error(err);
     } finally {
@@ -84,6 +119,25 @@
       </div>
       <ReceiptUpload />
     </div>
+
+    <!-- Sort buttons -->
+    <div class="flex justify-end gap-2">
+      <Button
+        variant={sortOrder === 'newest' ? 'default' : 'outline'}
+        size="sm"
+        on:click={() => toggleSortOrder('newest')}
+      >
+        Newest First
+      </Button>
+      <Button
+        variant={sortOrder === 'oldest' ? 'default' : 'outline'}
+        size="sm"
+        on:click={() => toggleSortOrder('oldest')}
+      >
+        Oldest First
+      </Button>
+    </div>
+
     <div class="grid gap-6">
       <Separator />
       <!-- (auto-fit) stacks receipt in the row infinitly if there is space (350px each receipt) -->
@@ -96,40 +150,37 @@
 
           <!-- if there are receipts fetch them all-->
         {:else}
-          <!-- {#key} block to force DOM re-creation when your data changes warning: could degrade performance -->
-          {#key receipts.length}
-            <!-- Loop over receipts -->
-            {#each receipts as receipt}
-              <div class="flex justify-center">
-                <!-- TODO: Animation doesnt work after uploading.. only on mount-->
-                <div use:tilt={{ max: 2, scale: 1.02, speed: 400 }} class="h-full w-full">
-                  <Card
-                    class="receipt-card my-3 grid h-full w-full grid-rows-[auto_1fr_auto] duration-500 animate-in fade-in"
-                  >
-                    <CardHeader class="flex flex-row justify-between gap-5">
-                      <div class="flex flex-col gap-2">
-                        <CardTitle>
-                          {receipt.vendor?.name || receipt.merchantName || 'Merchant'}
-                        </CardTitle>
-                        <CardDescription>{receipt?.category || 'Other'}</CardDescription>
-                      </div>
-                      <div class="flex">
-                        <ReceiptEdit {receipt} />
-                      </div>
-                    </CardHeader>
+          <!-- Loop over receipts -->
+          {#each receipts as receipt (receipt.id)}
+            <div class="flex justify-center">
+              <!-- TODO: Animation doesnt work after uploading.. only on mount-->
+              <div use:tilt={{ max: 2, scale: 1.02, speed: 400 }} class="h-full w-full">
+                <Card
+                  class="receipt-card my-3 grid h-full w-full grid-rows-[auto_1fr_auto] duration-500 animate-in fade-in"
+                >
+                  <CardHeader class="flex flex-row justify-between gap-5">
+                    <div class="flex flex-col gap-2">
+                      <CardTitle>
+                        {receipt.vendor?.name || receipt.merchantName || 'Merchant'}
+                      </CardTitle>
+                      <CardDescription>{receipt?.category || 'Other'}</CardDescription>
+                    </div>
+                    <div class="flex">
+                      <ReceiptEdit {receipt} />
+                    </div>
+                  </CardHeader>
 
-                    <!-- the Card Content -->
-                    <ReceiptCardContent {receipt} />
-                    <!-- todo i need the footer to be at very bottom of card  -->
-                    <CardFooter>
-                      <!-- TODO: Onclick Expand or popup Detailed view -->
-                      <ReceiptDetails {receipt} />
-                    </CardFooter>
-                  </Card>
-                </div>
+                  <!-- the Card Content -->
+                  <ReceiptCardContent {receipt} />
+                  <!-- todo i need the footer to be at very bottom of card  -->
+                  <CardFooter>
+                    <!-- TODO: Onclick Expand or popup Detailed view -->
+                    <ReceiptDetails {receipt} />
+                  </CardFooter>
+                </Card>
               </div>
-            {/each}
-          {/key}
+            </div>
+          {/each}
         {/if}
       </div>
     </div>
