@@ -24,7 +24,6 @@ export async function analyzeReceipt(file: File): Promise<any> {
     const fileSizeMB = file.size / (1024 * 1024);
     statusMessage = `File size: ${fileSizeMB.toFixed(2)} MB`;
     console.log(statusMessage);
-
     if (fileSizeMB > 4) {
       throw new Error('File size exceeds 4MB limit');
     }
@@ -270,7 +269,7 @@ export function extractResults(result: any) {
 export async function saveToFirestore(data: any): Promise<void> {
   try {
     const docRef = await db.collection('receipts').add(data); // add receipt in a new doc inside receipt collection
-    console.log('Receipt saved to Firestore with ID:', docRef.id);
+    // console.log('Receipt saved to Firestore with ID:', docRef.id);
   } catch (error) {
     console.error('Error saving to Firestore:', error);
     throw error;

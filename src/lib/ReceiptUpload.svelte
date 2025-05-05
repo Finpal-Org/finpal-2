@@ -1,22 +1,17 @@
 <script lang="ts">
   import { getReceipts } from '../../firebase/fireStore.svelte';
   import { Button } from './components/ui/button/index';
-  import { Input } from './components/ui/input/index';
-  import { Label } from './components/ui/label/index';
   import { analyzeReceipt } from './services/receiptService';
+  import { isHeicFile, convertHeicToJpeg } from './components/utils/heicValidator';
 
-  // Upload status
+  // Status vars
   let isProcessing = false;
-  let uploadStatus = '';
+  let statusMsg = '';
   let error = '';
-  let uploadComplete = false;
-  let uploadSuccess = false;
-
-  // File input reference
   let fileInput: any;
 
   /**
-   * Handles file upload when a user selects a file, svelte dont require (event args in input element)
+   * Handle file upload & conversion
    */
   async function handleFileUpload(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -24,48 +19,48 @@
 
     // Reset status
     error = '';
-    uploadStatus = '';
-    uploadComplete = false;
-    uploadSuccess = false;
+    statusMsg = '';
 
-    if (!files || files.length === 0) {
+    if (!files?.length) {
       error = 'No file selected';
       return;
     }
 
     const file = files[0];
 
-    // Basic validation
-    if (file.size > 4 * 1024 * 1024) {
-      error = 'File size exceeds 4MB limit';
+    // Check size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      error = 'File size exceeds 5MB limit';
       return;
     }
 
     isProcessing = true;
-    uploadStatus = 'Uploading and analyzing receipt...';
 
     try {
-      // Send to receipt service for processing
-      await analyzeReceipt(file);
+      let fileToProcess = file;
 
-      // Success status update
-      uploadComplete = true;
-      uploadSuccess = true;
-      uploadStatus = 'Receipt uploaded and processed successfully!';
-
-      // Reset file input
-      if (fileInput) {
-        fileInput.value = '';
+      // Convert HEIC if needed
+      if (await isHeicFile(file)) {
+        statusMsg = 'Converting HEIC...';
+        fileToProcess = await convertHeicToJpeg(file);
       }
-      await getReceipts(); //refresh receipts after upload (await for fetching)
+
+      // Process file
+      statusMsg = 'Processing receipt...';
+      await analyzeReceipt(fileToProcess);
+
+      // Success
+      statusMsg = 'Receipt processed successfully!';
+
+      // Reset input
+      if (fileInput) fileInput.value = '';
+
+      // Refresh receipts
+      await getReceipts();
     } catch (err) {
-      // Error handling
-      uploadComplete = true;
-      uploadSuccess = false;
-      error = err instanceof Error ? err.message : 'An error occurred during processing';
-      console.error('Receipt processing error:', err);
+      error = err instanceof Error ? err.message : 'Processing error';
+      console.error('Receipt error:', err);
     } finally {
-      // end of proccessing..
       isProcessing = false;
     }
   }
@@ -73,29 +68,19 @@
 
 <div class="">
   <div class="upload-container flex flex-col items-center justify-center gap-2">
-    <!-- TODO: make button show 3 options: 1- upload 2- capture 3-email forwarding -->
-    <Button
-      size="lg"
-      class="flex gap-2 p-8"
-      on:click={() => {
-        // if not proccessing a receipt -> click for file input
-        if (!isProcessing) fileInput.click();
-      }}
-    >
+    <Button size="lg" class="flex gap-2 p-8" on:click={() => !isProcessing && fileInput.click()}>
       {#if isProcessing}
         <span class="loading">Processing...</span>
       {:else}
-        <!-- TODO: svg icon for + sign -->
         <span class="upload-icon">➕</span>
         <span>Upload Receipt</span>
       {/if}
     </Button>
 
-    <!-- this input element is referenced (bind) by fileinput variable -->
     <input
       id="receipt-upload"
       type="file"
-      accept="image/jpeg,image/png,image/tiff,application/pdf"
+      accept="image/jpeg,image/png,image/tiff,application/pdf,image/heic,image/heif"
       bind:this={fileInput}
       on:change={handleFileUpload}
       disabled={isProcessing}
@@ -103,16 +88,12 @@
     />
   </div>
 
-  {#if uploadStatus}
-    <div class="status-message" class:success={uploadSuccess}>
-      {uploadStatus}
-    </div>
+  {#if statusMsg}
+    <div class="status-message">{statusMsg}</div>
   {/if}
 
   {#if error}
-    <div class="error-message">
-      {error}
-    </div>
+    <div class="error-message">{error}</div>
   {/if}
 </div>
 

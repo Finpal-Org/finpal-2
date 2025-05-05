@@ -110,7 +110,7 @@ async function analyzeReceiptWithAzure(file: File): Promise<any> {
       };
 
       // Step 2: Poll until the analysis is complete
-      console.log('Polling operation...');
+      // console.log('Polling operation...');
 
       // Poll up to 10 times
       for (let i = 0; i < 10; i++) {
@@ -353,7 +353,7 @@ export function extractResults(result: any) {
 async function saveToFirestoreDirectly(data: any): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, 'receipts'), data);
-    console.log('Receipt saved to Firestore with ID:', docRef.id);
+    // console.log('Receipt saved to Firestore with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error saving to Firestore:', error);

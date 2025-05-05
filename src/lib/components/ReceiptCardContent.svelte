@@ -220,20 +220,6 @@
                   </div>
                 </div>
               {/if}
-              <!--TODO Items : Loop if there is more than 1 item-->
-              <!-- {#if receipt.items}
-                {#each receipt.items as item}
-                  <div class="flex justify-between gap-2">
-                    <span class="text-muted-foreground">Item</span>
-                    <div class="flex flex-col gap-1">
-                      <span>{item?.description || ''}</span>
-                      <span>{item?.quantity || ''}</span>
-                      <span>{item?.currency || ''}</span>
-                      <span>{item?.amount || ''}</span>
-                    </div>
-                  </div>
-                {/each}
-              {/if} -->
               <!-- todo? -->
               <div class="flex justify-center">
                 <span class="flex items-center justify-center text-muted-foreground">
@@ -251,7 +237,11 @@
               <div class="mt-2 flex justify-between font-medium">
                 <span class="text-xl font-semibold">Total:</span>
                 <div class="flex items-center justify-center gap-1">
-                  <span class="text-xl font-medium">{removeSign(safeString(receipt.total))} </span>
+                  <span class="text-xl font-medium"
+                    >{receipt?.total != 0
+                      ? removeSign(safeString(receipt.total))
+                      : removeSign(safeString(receipt.subtotal))}
+                  </span>
 
                   <span>
                     {#if String(receipt?.total).includes('$') || receipt?.items?.[0]?.currency === 'USD'}
