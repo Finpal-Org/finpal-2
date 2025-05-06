@@ -39,7 +39,9 @@ browser-tools-mcp
 
 browser-tools-mcp
 #for backend files
-__pycache__
+__pycache__/
+**/__pycache__/
+**/*.pyc
 .cursor
 *.mdc
 
@@ -48,3 +50,6 @@ finpal-5d6e8-firebase-adminsdk-fbsvc-db54f9d30d.json
 
 *.md
 *.tex
+
+# Test requirements
+backend/test-requirements.txt
