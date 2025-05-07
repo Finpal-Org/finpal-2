@@ -24,8 +24,8 @@ export interface UserProfile {
 
 export interface ReceiptData {
   // Core fields matching the iOS structure
-  id?: string;
-  receipt_id?: string;
+  id?: string; //todo no longer exist
+  receipt_id?: string; // real id now
   receipt_image?: string;
   category?: string;
   date?: string;

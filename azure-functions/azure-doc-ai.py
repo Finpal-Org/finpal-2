@@ -64,12 +64,12 @@ def analyze_receipt():
                         "Ocp-Apim-Subscription-Key": key
                     }
                     #(repeated checking)
-                    # print("\nPolling operation...")
+                    print("\nPolling operation...")
                     for _ in range(10):  # Poll up to 10 times, doesnt actually drain request
                         time.sleep(2)  # Wait 2 seconds between polls
                         #result?
                         operation_response = requests.get(operation_location, headers=poll_headers)
-                        # print(f"Poll status code: {operation_response.status_code}")
+                        print(f"Poll status code: {operation_response.status_code}")
                         
                         if operation_response.status_code == 200:#operation result returned
                             # result in json? TODO: extract need fields only from this complex result

@@ -65,17 +65,17 @@
 
       // Chart colors for categories
       const colors = [
-        '#990011', // red
-        '#763626', // blue
-        '#A43820', // yellow
-        '#4BC0C0', // teal
+        '#f00a15', // red
+        '#0a38f0', // blue
+        '#d5f00a', // yellow
+        '#0af0dd', // teal
         '#9966FF', // purple
         '#FF9F40', // orange
-        '#6AB187', // grey
-        '#2C5F2D', // green
+        '#34f00a', // lime
+        '#2C5F2D', // dark green
         '#EF476F', // pink
-        '#FFBB00', // light yellow
-        '#00246B' // dark blue
+        '#0af0a7', // blue/green
+        '#f00ae8' // pinkish purple
       ];
 
       // Update chart data

@@ -1,8 +1,9 @@
 // Import necessary Firebase modules
 // import { initializeApp } from 'firebase/app';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebaseConfig';
 import { standardizeCategory } from '../utils/categoryMapping';
+import { generateUniqueId } from '../utils/idGenerator';
 import { uploadReceiptToStorage } from '../../../firebase/fireStorage.svelte';
 import { auth } from '../../../firebase/firebaseConfig';
 
@@ -219,7 +220,7 @@ export function extractResults(result: any) {
     }
 
     // Generate a unique receipt_id
-    extracted.receipt_id = crypto.randomUUID();
+    extracted.receipt_id = generateUniqueId();
 
     // Special handling for TaxDetails to extract rate, description, and netAmount
     if ('TaxDetails' in fields) {
@@ -363,9 +364,17 @@ async function saveToFirestoreDirectly(data: any): Promise<string> {
     // Add the user ID to the receipt data
     data.user_id = currentUser.uid;
 
-    const docRef = await addDoc(collection(db, 'receipts'), data);
-    // console.log('Receipt saved to Firestore with ID:', docRef.id);
-    return docRef.id;
+    // Ensure we have a receipt_id
+    if (!data.receipt_id) {
+      data.receipt_id = generateUniqueId();
+    }
+
+    // Use setDoc with the receipt_id as the document ID
+    const docRef = doc(db, 'receipts', data.receipt_id);
+    await setDoc(docRef, data);
+
+    console.log('Receipt saved to Firestore with ID:', data.receipt_id);
+    return data.receipt_id;
   } catch (error) {
     console.error('Error saving to Firestore:', error);
     throw error;

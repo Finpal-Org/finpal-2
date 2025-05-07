@@ -12,6 +12,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { Selected } from 'bits-ui';
   import { convertArabicToEnglishNumbers } from '../utils';
+  import { updateReceipt, deleteReceipt } from '../../../firebase/fireStore.svelte';
 
   // Define props with proper typing
   interface $$Props {
@@ -146,14 +147,27 @@
       }
     }
 
-    console.log('Form submitted:', updatedReceipt);
-    dispatch('save', updatedReceipt);
+    try {
+      // Use receipt.id or receipt.receipt_id depending on which exists
+      const receiptId = receipt.receipt_id || receipt.id;
+      if (!receiptId) {
+        throw new Error('Receipt ID not found');
+      }
 
-    // Show success message
-    alert('Receipt updated successfully');
+      await updateReceipt(receiptId, updatedReceipt);
 
-    // Close dialog
-    dialogOpen = false;
+      // Also dispatch the event for the parent component
+      dispatch('save', updatedReceipt);
+
+      // Show success message
+      alert('Receipt updated successfully');
+
+      // Close dialog
+      dialogOpen = false;
+    } catch (error) {
+      console.error('Error updating receipt:', error);
+      alert('Failed to update receipt. Please try again.');
+    }
   }
 
   // Handle item changes with proper typing
@@ -302,6 +316,36 @@
     const englishValue = convertArabicToEnglishNumbers(value);
     // Remove $ and any non-numeric characters except decimal point
     return String(englishValue).replace(/[^\d.]/g, '');
+  }
+
+  //  handle delete doc
+  async function handleDelete() {
+    try {
+      // Confirm deletion
+      if (!confirm('Are you sure you want to delete this receipt?')) {
+        return;
+      }
+
+      // Use receipt.id or receipt.receipt_id depending on which exists
+      const receiptId = receipt.receipt_id || receipt.id;
+      if (!receiptId) {
+        throw new Error('Receipt ID not found');
+      }
+
+      await deleteReceipt(receiptId);
+
+      // Dispatch delete event for parent component
+      dispatch('delete', receiptId);
+
+      // Show success message
+      alert('Receipt deleted successfully');
+
+      // Close dialog
+      dialogOpen = false;
+    } catch (error) {
+      console.error('Error deleting receipt:', error);
+      alert('Failed to delete receipt. Please try again.');
+    }
   }
 </script>
 
@@ -751,6 +795,9 @@
           </div>
 
           <div class="flex justify-end gap-4 pt-4">
+            <Button type="button" variant="destructive" on:click={handleDelete}
+              >Delete Receipt</Button
+            >
             <Dialog.Close>
               <Button type="button" variant="outline">Cancel</Button>
             </Dialog.Close>

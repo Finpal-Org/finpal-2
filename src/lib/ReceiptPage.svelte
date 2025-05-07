@@ -151,7 +151,7 @@
           <!-- if there are receipts fetch them all-->
         {:else}
           <!-- Loop over receipts -->
-          {#each receipts as receipt (receipt.id)}
+          {#each receipts as receipt (receipt.receipt_id)}
             <div class="flex justify-center">
               <!-- TODO: Animation doesnt work after uploading.. only on mount-->
               <div use:tilt={{ max: 2, scale: 1.02, speed: 400 }} class="h-full w-full">

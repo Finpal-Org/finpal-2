@@ -78,7 +78,7 @@
     );
   }
 
-  // Helper function to remove dollar sign if present and handle any input type
+  //todo(show if jpy yen / euro /$ dollar/ riyal. only) Helper function to remove dollar sign if present and handle any input type
   function removeSign(value: any): string {
     if (value === undefined || value === null) return '';
     // Convert to string
@@ -88,6 +88,8 @@
     // Remove $ and any non-numeric characters except decimal point
     return String(englishValue).replace(/[^\d.]/g, '');
   }
+  // todo format numbers to be 100,000,000.00 in this format
+  function formatNumber(value: any): string {}
 
   // Convert any value to string safely
   function safeString(value: any): string {

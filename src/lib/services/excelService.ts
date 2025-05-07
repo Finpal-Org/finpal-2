@@ -54,7 +54,7 @@ export async function exportReceiptsToExcel(
   receipts.forEach((receipt) => {
     // Add row with data mapped to columns
     worksheet.addRow({
-      id: receipt.id || '',
+      // todo make number field receiptNumber: receipt.receipt_number || '',
       merchantName: receipt.merchantName || 'Unknown',
       category: receipt.category || 'Other',
       date: receipt.date || '',
@@ -211,8 +211,8 @@ export async function exportReceiptsByCategory(
         phone: receipt.phone || '',
         currency: receipt.currency || '',
         createdTime: receipt.createdTime || '',
-        payment: receipt.payment || '',
-        taxDescription: receipt.taxDescription || ''
+        payment: receipt.payment || ''
+        // taxDescription: receipt.taxDescription || ''
       });
     });
 

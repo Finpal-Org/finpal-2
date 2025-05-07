@@ -93,7 +93,7 @@
   {/if}
 
   {#if error}
-    <div class="error-message">{error}</div>
+    <div class="error-message text-red-500">🚨 {error}</div>
   {/if}
 </div>
 

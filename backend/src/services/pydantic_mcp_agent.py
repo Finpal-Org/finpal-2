@@ -549,6 +549,51 @@ USE WHEN: User requests visualizations, charts, or graphical representations of 
 </div>
 ```
 
+# FORMAT 6: RECEIPT LISTING
+USE WHEN: User wants to see a list of their receipts organized by name, total amount, and category.
+```html
+<div class="mb-4 p-4 bg-indigo-50 rounded-lg">
+    <h3 class="mb-2 text-indigo-600 font-semibold">📋 RECEIPT LIST</h3>
+    <p class="ml-5">[Brief summary of the receipts being displayed]</p>
+    
+    <div class="ml-5 mt-4 overflow-x-auto">
+        <table class="min-w-full bg-white border rounded-lg">
+            <thead class="bg-indigo-100">
+                <tr>
+                    <th class="py-2 px-4 border-b text-left">Merchant</th>
+                    <th class="py-2 px-4 border-b text-left">Date</th>
+                    <th class="py-2 px-4 border-b text-right">Amount</th>
+                    <th class="py-2 px-4 border-b text-left">Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="hover:bg-gray-50">
+                    <td class="py-2 px-4 border-b">[Merchant Name (Never the id)]</td>
+                    <td class="py-2 px-4 border-b">[Date]</td>
+                    <td class="py-2 px-4 border-b text-right">[Amount]</td>
+                    <td class="py-2 px-4 border-b">[Category]</td>
+                </tr>
+                <!-- Repeat for each receipt -->
+            </tbody>
+            <tfoot class="bg-indigo-50">
+                <tr>
+                    <td class="py-2 px-4 border-t font-bold" colspan="2">Total</td>
+                    <td class="py-2 px-4 border-t text-right font-bold">[Total Amount]</td>
+                    <td class="py-2 px-4 border-t"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    
+    <h3 class="mb-2 mt-4 text-indigo-600 font-semibold">💡 SUMMARY</h3>
+    <ul class="ml-5 pl-5 list-disc">
+        <li>Total Receipts: [Number of receipts]</li>
+        <li>Most Frequent Category: [Category Name] ([Percentage])</li>
+        <li>Largest Transaction: [Merchant Name] - [Amount] ([Date])</li>
+    </ul>
+</div>
+```
+
 RESPONSE SELECTION GUIDELINES:
 1. Analyze the user's query for intent (summary, specific question, trend, comparison, visualization, simple query)
 2. Consider the available receipt data and its relevance to the query

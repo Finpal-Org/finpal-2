@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read and write only their own data
+    match /receipts/{receiptId} {
+      // Allow read and delete only if the receipt belongs to the authenticated user
+      allow read, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
+      
+      // Allow create if the user is authenticated and sets their own user_id
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      
+      // Allow update if the user is authenticated, owns the receipt, and isn't changing the user_id
+      allow update: if request.auth != null && 
+                     request.auth.uid == resource.data.user_id &&
+                     request.auth.uid == request.resource.data.user_id;
+    }
+    
+    // User profiles can only be read/written by the owner
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // For admin use and development - can be removed for production
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+                           exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+  }
+} 

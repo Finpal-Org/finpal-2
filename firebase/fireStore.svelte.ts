@@ -5,11 +5,16 @@ import {
   query,
   addDoc,
   serverTimestamp,
-  where
+  where,
+  doc,
+  updateDoc,
+  deleteDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { ReceiptData } from '../src/types';
 import { getCurrentUser } from './fireAuth';
+import { generateUniqueId } from '../src/lib/utils/idGenerator';
 // import type ReceiptField from '../src/lib/Receipt.svelte';
 
 export let receipts: ReceiptData[] = $state([]); // init reactive receipts as empty array
@@ -87,7 +92,7 @@ export async function getReceipts() {
 
       // Build object from safe variables
       const safeReceipt = {
-        id: doc.id,
+        // id: doc.id,
         receipt_id: rawData.receipt_id || doc.id,
         receipt_image: rawData.receipt_image || rawData.imageUrl || '',
         category: rawData.category || 'Other',
@@ -164,24 +169,88 @@ export async function addReceiptWithImage(receiptData: ReceiptData, imageUrl: st
       throw new Error('No user logged in. Cannot save receipt.');
     }
 
-    // Add imageUrl and user_id to the receipt data
+    // Generate a unique receipt_id if not provided
+    const receipt_id = receiptData.receipt_id || generateUniqueId();
+
+    // Add imageUrl, receipt_id, and user_id to the receipt data
     const receiptWithImage = {
       ...receiptData,
+      receipt_id,
       imageUrl,
       user_id: currentUser.uid,
       createdTime: serverTimestamp()
     };
 
-    // Add document to Firestore
-    const docRef = await addDoc(receiptCollection, receiptWithImage);
-    console.log('Receipt added with ID: ', docRef.id);
+    // Use doc() and setDoc() to create a document with a specific ID
+    const docRef = doc(db, 'receipts', receipt_id);
+    await setDoc(docRef, receiptWithImage);
+
+    console.log('Receipt added with ID: ', receipt_id);
 
     // Refresh receipts list
     await getReceipts();
 
-    return docRef.id;
+    return receipt_id;
   } catch (error) {
     console.error('Error adding receipt: ', error);
+    throw error;
+  }
+}
+
+// Function to update an existing receipt
+export async function updateReceipt(receiptId: string, receiptData: ReceiptData): Promise<void> {
+  try {
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('No user logged in. Cannot update receipt.');
+    }
+
+    // Ensure the receipt data has the correct receipt_id
+    const dataToUpdate = {
+      ...receiptData,
+      receipt_id: receiptId, // Make sure receipt_id matches document ID
+      user_id: currentUser.uid
+    };
+
+    // Get reference to the receipt document
+    const receiptRef = doc(db, 'receipts', receiptId);
+
+    // Update the document
+    await updateDoc(receiptRef, dataToUpdate);
+
+    // Refresh receipts list
+    await getReceipts();
+
+    console.log('Receipt updated with ID: ', receiptId);
+  } catch (error) {
+    console.error('Error updating receipt: ', error);
+    throw error;
+  }
+}
+
+// Function to delete a receipt
+export async function deleteReceipt(receiptId: string): Promise<void> {
+  try {
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('No user logged in. Cannot delete receipt.');
+    }
+
+    // Get reference to the receipt document
+    // We use the receiptId as the document ID
+    const receiptRef = doc(db, 'receipts', receiptId);
+
+    // Delete the document
+    await deleteDoc(receiptRef);
+
+    // Refresh receipts list
+    await getReceipts();
+
+    console.log('Receipt deleted with ID: ', receiptId);
+  } catch (error) {
+    console.error('Error deleting receipt: ', error);
     throw error;
   }
 }
