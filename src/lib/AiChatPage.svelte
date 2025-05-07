@@ -453,7 +453,7 @@
   });
 </script>
 
-<div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-2xl flex-col px-4 py-8">
+<div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-4xl flex-col px-4 py-8">
   <Card class="flex h-full flex-col border-0 shadow-lg">
     <CardHeader class="pb-2">
       <CardTitle class="flex items-center gap-2 text-xl">

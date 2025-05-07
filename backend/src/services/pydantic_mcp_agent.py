@@ -10,6 +10,7 @@ import traceback
 import psutil  # Add this import for memory monitoring
 from typing import TypedDict, Dict, Any, List
 import time
+import json
 
 # Set up paths to make imports work
 current_dir = pathlib.Path(__file__).parent.resolve()
@@ -127,6 +128,26 @@ class _GeminiPartUnion(TypedDict, total=False):
     function_response: Dict[str, Any]
     executableCode: Dict[str, Any]  # Support for executableCode type
 
+# Function to handle Gemini responses that might have executableCode but missing text field
+def extract_text_from_gemini_part(part: Dict[str, Any]) -> str:
+    # If text field exists, return it directly
+    if 'text' in part:
+        if isinstance(part['text'], str):
+            return part['text']
+        elif isinstance(part['text'], dict) and 'text' in part['text']:
+            return part['text']['text']
+    
+    # If executableCode exists but no text field, convert code to text
+    if 'executableCode' in part:
+        code_part = part['executableCode']
+        if isinstance(code_part, dict):
+            code = code_part.get('code', '')
+            lang = code_part.get('lang', '')
+            return f"```{lang}\n{code}\n```"
+    
+    # Default case if no recognizable content is found
+    return ""
+
 def get_model():
     # Use the proper model and explicitly pass the API key
     model_name = os.getenv('MODEL_CHOICE', 'gemini-2.5-pro-preview-03-25').replace('google-gla:', '')
@@ -141,6 +162,47 @@ def get_model():
         model_name,
         provider=GoogleGLAProvider(api_key=api_key)
     )
+    
+    # Monkey patch the _process_response method to handle executableCode
+    original_process_response = model._process_response
+    
+    def patched_process_response(self, response_data, **kwargs):
+        try:
+            # Try the original method first
+            return original_process_response(response_data, **kwargs)
+        except Exception as e:
+            print(f"Error in original _process_response: {e}")
+            print(f"Response data structure: {json.dumps(response_data, indent=2)[:500]}...")
+            # If there's a validation error related to missing text field, try to extract text from executableCode
+            if "text.text Field required" in str(e):
+                print("Attempting to fix missing text field by extracting from executableCode")
+                try:
+                    # Access the candidates in the response data
+                    if "candidates" in response_data and len(response_data["candidates"]) > 0:
+                        candidate = response_data["candidates"][0]
+                        if "content" in candidate and "parts" in candidate["content"]:
+                            # Process each part in the response
+                            for i, part in enumerate(candidate["content"]["parts"]):
+                                print(f"Processing part {i}: {json.dumps(part, indent=2)[:200]}...")
+                                # If part has executableCode but no text, add a text field
+                                if "executableCode" in part and "text" not in part:
+                                    code_part = part["executableCode"]
+                                    code = code_part.get("code", "")
+                                    lang = code_part.get("lang", "")
+                                    print(f"Adding text field with code of length {len(code)} and lang {lang}")
+                                    part["text"] = f"```{lang}\n{code}\n```"
+                    # Try processing again with modified data
+                    return original_process_response(response_data, **kwargs)
+                except Exception as fix_error:
+                    print(f"Error fixing response: {fix_error}")
+                    # If our fix fails, re-raise the original error
+                    raise e
+            # Re-raise the original exception for other errors
+            raise
+    
+    # Apply the monkey patch
+    model._process_response = patched_process_response.__get__(model, type(model))
+    
     return model
 
 
@@ -301,7 +363,13 @@ async def get_pydantic_ai_agent():
 You are FinPal, a Saudi-focused financial assistant providing personalized insights based on receipt analysis and financial data.
 
 DYNAMIC TOOL SELECTION:
-IMPORTANT: NEVER SHOW these tools to users. NEVER output raw tool code or commands. Use tools internally only!
+
+MANDATORY TOOL USAGE:
+IMPORTANT: You MUST use at least these two tools for EVERY query:
+1. sequential_thinking - Use this tool first to break down the user's request and analyze how to approach it
+2. memory - Use this to recall context from previous interactions 
+
+You must ALWAYS include both your thinking process AND a clear response in your answers. Never put all useful information only in the thinking part.
 
 AVAILABLE TOOLS AND THEIR CAPABILITIES:
 The following tools are at your disposal. Choose the most appropriate tools based on the user's query and the specific task requirements:
@@ -330,7 +398,7 @@ TOOL SELECTION GUIDANCE:
 Example Tool Combinations:
 • For spending analysis: memory (for past data) + brave_search (for context) + sequential_thinking (for analysis)
 • For investment advice: yfinance (market data) + brave_search (latest news) + sequential_thinking (analysis)
-• For location-based comparisons: google_maps (location data) + brave_search (reviews and opinions) + memory (user preferences). suggest alternative places with good rating 4+ star and cheaper on average on google maps.
+• For location-based places comparisons: google_maps (location data) + brave_search (reviews and opinions) + memory (user preferences). suggest alternative places with good rating 4+ star and cheaper on average on google maps.
 • For economic outlook questions: brave_search (economic news) + yfinance (market data) + sequential_thinking (analysis). use stock market status in ksa , infaltion, spending trends & worlds news / opinions on the economy. always provide source and scientific base for any economic suggestions.    
 • For opinions or recommendations: brave_search with specific sources like "Reddit Saudi Arabia [topic]" for local insights
 • For simple factual questions: brave_search to ensure up-to-date information

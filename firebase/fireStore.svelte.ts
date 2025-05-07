@@ -92,8 +92,8 @@ export async function getReceipts() {
 
       // Build object from safe variables
       const safeReceipt = {
-        // id: doc.id,
-        receipt_id: rawData.receipt_id || doc.id,
+        // Use receipt_id as the main identifier
+        receipt_id: rawData.receipt_id,
         receipt_image: rawData.receipt_image || rawData.imageUrl || '',
         category: rawData.category || 'Other',
         date: rawData.date || 'Unknown',
@@ -216,8 +216,9 @@ export async function updateReceipt(receiptId: string, receiptData: ReceiptData)
     // Get reference to the receipt document
     const receiptRef = doc(db, 'receipts', receiptId);
 
-    // Update the document
-    await updateDoc(receiptRef, dataToUpdate);
+    // Use setDoc with merge option to update the document
+    // This ensures all fields are properly updated and preserves fields not in dataToUpdate
+    await setDoc(receiptRef, dataToUpdate, { merge: true });
 
     // Refresh receipts list
     await getReceipts();
