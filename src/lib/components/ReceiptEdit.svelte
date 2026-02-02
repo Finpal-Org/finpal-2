@@ -103,60 +103,53 @@
   async function handleSubmit(event: Event) {
     event.preventDefault();
 
+    // Always use receipt_id as the document ID
+    if (!receipt.receipt_id) {
+      alert('Cannot update receipt: Missing receipt_id');
+      return;
+    }
+
+    // Prepare updated data in a simpler structure
     const updatedReceipt = {
       ...receipt, // Keep any fields we didn't modify
-      // Handle both old and new structure
+      receipt_id: receipt.receipt_id, // Ensure receipt_id is included
       category: formData.category,
       date: formData.date,
       time: formData.time,
       total: formData.total,
-      subtotal: formData.subtotal
+      subtotal: formData.subtotal,
+      tax: formData.totalTax
     };
 
-    // Update fields based on which structure the receipt uses
-    if (receipt.vendor) {
-      // New structure - update vendor object
-      updatedReceipt.vendor = {
-        ...(receipt.vendor || {}),
-        name: formData.merchantName,
-        address: formData.address,
-        phone: formData.phone
-      };
-      updatedReceipt.tax = formData.totalTax;
+    // Update vendor info consistently
+    updatedReceipt.vendor = {
+      ...(receipt.vendor || {}),
+      name: formData.merchantName,
+      address: formData.address,
+      phone: formData.phone
+    };
 
-      // Update line_items if they exist - convert back from our format
-      if (receipt.line_items) {
-        updatedReceipt.line_items = formData.items.map((item: any) => ({
-          id: item.id,
-          description: item.description,
-          quantity: item.quantity,
-          total: item.amount,
-          warranty: item.warranty
-        }));
-      }
-    } else {
-      // Old structure - update direct fields
-      updatedReceipt.merchantName = formData.merchantName;
-      updatedReceipt.address = formData.address;
-      updatedReceipt.phone = formData.phone;
-      updatedReceipt.totalTax = formData.totalTax;
+    // If we have items, update them too
+    if (formData.items && formData.items.length > 0) {
+      // Determine whether to use line_items or items property based on what the receipt already has
+      const itemsField = receipt.line_items ? 'line_items' : 'items';
 
-      // Update items if they exist
-      if (receipt.items) {
-        updatedReceipt.items = formData.items;
-      }
+      updatedReceipt[itemsField] = formData.items.map((item) => ({
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        total: item.amount,
+        amount: item.amount,
+        currency: item.currency,
+        warranty: item.warranty
+      }));
     }
 
     try {
-      // Use receipt.id or receipt.receipt_id depending on which exists
-      const receiptId = receipt.receipt_id || receipt.id;
-      if (!receiptId) {
-        throw new Error('Receipt ID not found');
-      }
+      // Use receipt_id for updating
+      await updateReceipt(receipt.receipt_id, updatedReceipt);
 
-      await updateReceipt(receiptId, updatedReceipt);
-
-      // Also dispatch the event for the parent component
+      // Dispatch the event for the parent component
       dispatch('save', updatedReceipt);
 
       // Show success message
@@ -326,16 +319,16 @@
         return;
       }
 
-      // Use receipt.id or receipt.receipt_id depending on which exists
-      const receiptId = receipt.receipt_id || receipt.id;
-      if (!receiptId) {
-        throw new Error('Receipt ID not found');
+      // Always use receipt_id as the document ID
+      if (!receipt.receipt_id) {
+        alert('Cannot delete receipt: Missing receipt_id');
+        return;
       }
 
-      await deleteReceipt(receiptId);
+      await deleteReceipt(receipt.receipt_id);
 
       // Dispatch delete event for parent component
-      dispatch('delete', receiptId);
+      dispatch('delete', receipt.receipt_id);
 
       // Show success message
       alert('Receipt deleted successfully');
