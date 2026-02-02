@@ -219,6 +219,27 @@
   function sanitizeResponse(response: string): { content: string; thinking?: string } {
     if (typeof response !== 'string') return { content: response };
 
+    // Look for explicitly formatted thinking sections with <THINKING> tags
+    const thinkingStart = response.indexOf('<THINKING>');
+    const thinkingEnd = response.indexOf('</THINKING>');
+
+    if (thinkingStart !== -1 && thinkingEnd !== -1 && thinkingEnd > thinkingStart) {
+      // Extract explicitly formatted thinking
+      const thinking = response.substring(thinkingStart + 10, thinkingEnd).trim();
+
+      // Extract content after the thinking section
+      let content = response.substring(thinkingEnd + 11).trim();
+
+      // If content starts with newlines, trim them
+      content = content.replace(/^\n+/, '');
+
+      // Process content for charts and backgrounds
+      content = processHtml(content);
+      content = unifyBackgrounds(content);
+
+      return { content, thinking };
+    }
+
     // Look for split between thinking and content (introduced by our backend changes)
     // The backend now puts a double newline between thinking and content
     const splitIndex = response.indexOf('\n\n<div');
@@ -251,17 +272,26 @@
       return { content: unifyBackgrounds(processHtml(response)) };
     }
 
-    // Check for tool command patterns if no HTML is found
+    // todo add new mcp tools Check for tool command patterns if no HTML is found
     const toolPatterns = [
       'tool_code',
       'sequential_thinking',
       'memory_tool',
       'brave_search',
       'google_maps',
-      'yfinance'
+      'yfinance',
+      'EXECUTION PLAN',
+      'Step 1',
+      'Step 2',
+      'Step 3',
+      'DETAILED ANALYSIS',
+      'spending patterns',
+      'expense management',
+      'financial advice',
+      'budget planning'
     ];
 
-    // If no HTML but contains tool commands, show a default message
+    // If no HTML but contains tool commands or execution planning, show a default message
     for (const pattern of toolPatterns) {
       if (response.includes(pattern)) {
         return {
@@ -453,7 +483,7 @@
   });
 </script>
 
-<div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-2xl flex-col px-4 py-8">
+<div class="container mx-auto flex h-[calc(100vh-2rem)] max-w-4xl flex-col px-4 py-8">
   <Card class="flex h-full flex-col border-0 shadow-lg">
     <CardHeader class="pb-2">
       <CardTitle class="flex items-center gap-2 text-xl">
@@ -552,10 +582,33 @@
                               /></svg
                             >
                           </span>
-                          <span>View AI thought process</span>
+                          <span>View AI thought process & execution plan</span>
                         </summary>
-                        <pre
-                          class="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-muted/50 p-2 text-xs text-white">{message.thinking}</pre>
+                        <div class="mt-2 rounded bg-muted/50 p-2 text-white">
+                          {#if message.thinking.includes('EXECUTION PLAN')}
+                            <!-- Format the execution plan section differently -->
+                            {#each message.thinking.split('EXECUTION PLAN:') as part, i}
+                              {#if i === 0}
+                                <pre class="whitespace-pre-wrap text-xs">{part}</pre>
+                              {:else}
+                                <div class="mt-2 border-t border-green-400 pt-2">
+                                  <div class="mb-1 font-bold text-green-400">EXECUTION PLAN:</div>
+                                  <pre class="whitespace-pre-wrap text-xs">{part}</pre>
+                                </div>
+                              {/if}
+                            {/each}
+                          {:else if message.thinking.includes('DETAILED ANALYSIS')}
+                            <!-- Special formatting for expense management thinking -->
+                            <div class="rounded border border-blue-400 p-2">
+                              <div class="mb-2 font-bold text-blue-400">
+                                PERSONALIZED FINANCIAL ANALYSIS
+                              </div>
+                              <pre class="whitespace-pre-wrap text-xs">{message.thinking}</pre>
+                            </div>
+                          {:else}
+                            <pre class="whitespace-pre-wrap text-xs">{message.thinking}</pre>
+                          {/if}
+                        </div>
                       </details>
                     </div>
                   {/if}

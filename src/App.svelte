@@ -15,45 +15,45 @@
   import { push, location } from 'svelte-spa-router';
 
   // Authentication state
-  let isAuthenticated = $state(false);
-  let userLoading = $state(true);
+  let isAuthenticated = $state(true); // todo temp change back to false
+  let userLoading = $state(false);
 
   // Keep track of current location
   let currentPath = $derived($location);
 
   // Routes configuration - conditionally include routes based on auth state
   let routes = $derived({
-    '/': isAuthenticated ? Receipt : Auth,
-    '/receipts': isAuthenticated ? Receipt : Auth,
-    '/aichat': isAuthenticated ? AiChat : Auth,
-    '/analysis': isAuthenticated ? Analysis : Auth,
-    '/reports': isAuthenticated ? ReportsPage : Auth,
+    // '/': isAuthenticated ? Receipt : Auth, todo base temp
+    '/receipts': isAuthenticated ? Receipt : Receipt,
+    '/aichat': isAuthenticated ? AiChat : AiChat,
+    '/analysis': isAuthenticated ? Analysis : Analysis,
+    '/reports': isAuthenticated ? ReportsPage : ReportsPage,
     '/auth': Auth,
-    '*': isAuthenticated ? Home : Auth
+    '*': isAuthenticated ? Home : Home
   });
 
   // Setup auth listener on mount
-  onMount(() => {
-    const unsubscribe = onAuthStateChanged((user) => {
-      const wasAuthenticated = isAuthenticated;
-      isAuthenticated = !!user;
-      userLoading = false;
+  // onMount(() => {
+  //   const unsubscribe = onAuthStateChanged((user) => {
+  //     const wasAuthenticated = isAuthenticated;
+  //     isAuthenticated = !!user;
+  //     userLoading = false;
 
-      // Handle auth state change navigations
-      if (!wasAuthenticated && isAuthenticated) {
-        // User just logged in
-        if (currentPath === '/auth' || currentPath === '/') {
-          push('/receipts');
-        }
-      } else if (wasAuthenticated && !isAuthenticated) {
-        // User just logged out
-        push('/auth');
-      }
-    });
+  //     // Handle auth state change navigations
+  //     if (!wasAuthenticated && isAuthenticated) {
+  //       // User just logged in
+  //       if (currentPath === '/auth' || currentPath === '/') {
+  //         push('/receipts');
+  //       }
+  //     } else if (wasAuthenticated && !isAuthenticated) {
+  //       // User just logged out
+  //       push('/auth');
+  //     }
+  //   });
 
-    // Cleanup subscription on component destroy
-    return unsubscribe;
-  });
+  //   // Cleanup subscription on component destroy
+  //   return unsubscribe;
+  // });
 </script>
 
 <main>

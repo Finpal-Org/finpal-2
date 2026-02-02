@@ -4,7 +4,7 @@ import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebaseConfig';
 import { standardizeCategory } from '../utils/categoryMapping';
 import { generateUniqueId } from '../utils/idGenerator';
-import { uploadReceiptToStorage } from '../../../firebase/fireStorage.svelte';
+// import { uploadReceiptToStorage } from '../../../firebase/fireStorage.svelte'; // TEMPORARILY DISABLED
 import { auth } from '../../../firebase/firebaseConfig';
 
 // Safe type assertion for environment variables
@@ -39,15 +39,10 @@ export async function analyzeReceipt(file: File): Promise<any> {
     statusMessage = 'Processing receipt...';
     console.log(statusMessage);
 
-    // Run Azure analysis and Firebase upload in parallel
+    // Run Azure analysis (Firebase Storage temporarily disabled)
     try {
-      const [extracted, imageUrl] = await Promise.all([
-        analyzeReceiptWithAzure(file), // Azure analysis
-        uploadReceiptToStorage(file).catch((error) => {
-          console.error('Image upload failed, using default image:', error);
-          return DEFAULT_IMAGE_URL; // Use default image if upload fails
-        })
-      ]);
+      const extracted = await analyzeReceiptWithAzure(file); // Azure analysis only
+      const imageUrl = DEFAULT_IMAGE_URL; // Use default image since storage is disabled
 
       // If we have valid extraction results, save to Firestore with image URL
       if (Object.keys(extracted).length > 0 && !extracted.error) {
@@ -384,15 +379,10 @@ async function saveToFirestoreDirectly(data: any): Promise<string> {
 // The original saveToFirestore function is kept for backward compatibility
 export async function saveToFirestore(data: any, imageFile?: File): Promise<string> {
   try {
-    // If we have an image file, upload it to Firebase Storage first
+    // Firebase Storage temporarily disabled - use default image
     if (imageFile) {
-      try {
-        const imageUrl = await uploadReceiptToStorage(imageFile);
-        data.imageUrl = imageUrl; // Add the image URL to the receipt data
-      } catch (error) {
-        console.error('Image upload failed, using default image:', error);
-        data.imageUrl = DEFAULT_IMAGE_URL; // Use default image if upload fails
-      }
+      console.log('Firebase Storage is temporarily disabled, using default image');
+      data.imageUrl = DEFAULT_IMAGE_URL; // Use default image since storage is disabled
     }
 
     return saveToFirestoreDirectly(data);

@@ -5,13 +5,13 @@ import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   // todo maybe hide them later
-  apiKey: 'AIzaSyAeSN-aBItuUN21fnbsklwdNrMCMNjWjJE',
-  authDomain: 'finpal-5d6e8.firebaseapp.com',
-  projectId: 'finpal-5d6e8',
-  storageBucket: 'finpal-5d6e8.firebasestorage.app',
-  messagingSenderId: '446406693977',
-  appId: '1:446406693977:web:517d41f2c0e7a0cf880d48',
-  measurementId: 'G-0N6KLHTSQZ'
+  apiKey: 'AIzaSyDomDNnxl85tSagZ-1eGmFcy40R4PvBJPI',
+  authDomain: 'finpal-4c883.firebaseapp.com',
+  projectId: 'finpal-4c883',
+  storageBucket: 'finpal-4c883.firebasestorage.app',
+  messagingSenderId: '332682233191',
+  appId: '1:332682233191:web:fa19475e3265c005261bc2',
+  measurementId: 'G-M21S6JPSN3'
 };
 
 // Initialize Firebase
